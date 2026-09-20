@@ -8,6 +8,7 @@ post-window extreme, per metric.
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass
 
 import pandas as pd
@@ -47,8 +48,15 @@ def deltas_for(frame: pd.DataFrame, windows: Windows, service: str) -> list[Metr
             continue
         mean = float(pre[name].mean())
         std = float(pre[name].std())
-        peak = float(post[name].abs().max()) if post[name].notna().any() else float("nan")
-        sigma = abs(peak - mean) / std if std and std > 0 else float("nan")
+        deviation = (post[name] - mean).abs()
+        if not deviation.notna().any():
+            out.append(MetricDelta(name, round(mean, 4), float("nan"), float("nan")))
+            continue
+        # The most deviating post value, not the largest one: a metric that collapses (workload
+        # during an outage) deviates as much as one that spikes, and `max` reported it unchanged.
+        # This is PRISM's own |x - c|, aggregated the same way.
+        peak = float(post[name].loc[deviation.idxmax()])
+        sigma = float(deviation.max()) / std if std and std > 0 else float("nan")
         out.append(MetricDelta(name, round(mean, 4), round(peak, 4), round(sigma, 2)))
     return sorted(out, key=_by_deviation)
 
@@ -73,7 +81,9 @@ def build(
     primary = rankings[0]
     return {
         "incident_id": incident_id,
-        "timeline": windows.as_dict(),
+        # `t_report` is when this ran; the rest of the timeline is planned. The evaluation's
+        # time-to-diagnosis used the planned `pull_at`, which ignores how long the analysis took.
+        "timeline": windows.as_dict() | {"t_report": int(time.time())},
         "alert": alert or {},
         "primary_variant": primary.variant,
         "rankings": [r.as_dict() for r in rankings],

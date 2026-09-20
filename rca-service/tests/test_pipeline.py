@@ -16,7 +16,7 @@ from app.config import Settings
 from app.pipeline import Pipeline
 from app.report import deltas_for, to_markdown
 from app.store import Store
-from app.windows import from_trigger
+from app.windows import from_anomaly_time, from_trigger
 from conftest import ANOMALY_TIME
 
 
@@ -100,3 +100,22 @@ def test_markdown_names_the_suspects_and_the_timeline(tmp_path, frame):
     assert "# Incident offline-md" in markdown
     assert "cartservice" in markdown
     assert str(ANOMALY_TIME) in markdown
+
+
+def test_a_metric_that_collapses_is_reported_as_a_deviation():
+    """A drop deviates as much as a spike, and the report has to say so.
+
+    `post.abs().max()` followed the largest value, so workload collapsing to zero during an outage
+    was reported at its pre-fault level and scored ~0 sigma -- the report contradicting the ranking
+    PRISM computed from the same frame, since PRISM scores |x - c| in both directions.
+    """
+    t0 = 1_726_830_000
+    frame = pd.DataFrame({"time": list(range(t0 - 300, t0 + 180, 5))})
+    pre = frame["time"] < t0
+    frame["cartservice_workload"] = [20.0 + (i % 3) * 0.1 if p else 0.0
+                                     for i, p in enumerate(pre)]
+
+    delta = deltas_for(frame, from_anomaly_time(t0, Settings().windows), "cartservice")[0]
+
+    assert delta.post_peak == 0.0
+    assert delta.deviation_sigma > 3

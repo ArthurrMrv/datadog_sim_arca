@@ -101,7 +101,7 @@ def _case(fault: Fault, incident: dict | None) -> Case:
         incident_id=incident["incident_id"],
         ranking=[entry["service"] for entry in primary],
         t_trigger=incident["timeline"].get("t_trigger"),
-        t_report=incident["timeline"].get("pull_at"),
+        t_report=incident["timeline"].get("t_report") or incident["timeline"].get("pull_at"),
     )
 
 
