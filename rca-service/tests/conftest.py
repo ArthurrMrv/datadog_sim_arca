@@ -20,7 +20,7 @@ BASELINE = 600
 POST = 180
 
 SERVICES = ("cartservice", "frontend", "adservice")
-FAMILIES = ("cpu", "mem", "latency_p95", "error_rate", "workload")
+FAMILIES = ("cpu", "mem", "latency_avg", "error_rate", "workload")
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def _value(service: str, family: str, t: int) -> float:
     error_rate stays flat at zero, as it does on a healthy system, so the adapter's
     constant-column drop is exercised on realistic data rather than on a special case.
     """
-    baselines = {"cpu": 10.0, "mem": 2.0e8, "latency_p95": 0.05, "error_rate": 0.0,
+    baselines = {"cpu": 10.0, "mem": 2.0e8, "latency_avg": 0.05, "error_rate": 0.0,
                  "workload": 20.0}
     base = baselines[family]
     wobble = 1 + 0.01 * math.sin(t / 7.0)
@@ -62,8 +62,8 @@ def _value(service: str, family: str, t: int) -> float:
     if t < ANOMALY_TIME:
         return value
     if service == "cartservice":
-        return value * {"cpu": 5, "latency_p95": 3}.get(family, 1)
-    if service == "frontend" and family == "latency_p95":
+        return value * {"cpu": 5, "latency_avg": 3}.get(family, 1)
+    if service == "frontend" and family == "latency_avg":
         return value * 4
     return value
 

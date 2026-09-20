@@ -140,6 +140,26 @@ Reference points established while diagnosing it, on site `us5.datadoghq.com`:
 - Datadog distinguishes the two credentials: `403 {"errors":["Forbidden"]}` is the API key,
   `401 {"errors":["Unauthorized"]}` is the application key / token.
 
+## Two live-path defects the fixtures could not catch, 2026-09-20
+
+**`Point` is not a list.** `MetricsApi.query_metrics` returns each point as a `Point` model that
+supports neither `len()` nor indexing; only `.value` reaches the `[epoch_milliseconds, value]` pair.
+`parse_series` indexed it directly, so every container family failed with
+`object of type 'Point' has no len()` while the recorded-fixture tests passed. `tests/test_adapter.py`
+now feeds real `Point` objects.
+
+**`p95:` on a distribution needs percentile aggregation enabled per metric.** Without it the query
+fails with `configuration error :: type: missing_aggregation :: aggregations: AGG_AVG/AGG_P95`. The
+latency family is therefore `latency_avg` using `avg:`, which works on any distribution; for these
+faults the mean moves enormously anyway (a 200ms injected delay against a ~5ms baseline). To use p95,
+enable `include_percentiles` on `traces.span.metrics.duration` and rename the family to `latency_p95` —
+the first token is what PRISM classifies, so either name is external.
+
+**The Agent's OTLP receiver binds to localhost by default.** Once the Service name was right, the
+Collector still got `connection refused` on the ClusterIP: the Service resolved and the port was
+published, but nothing outside the Agent's network namespace could connect.
+`DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT=0.0.0.0:4317` is now set explicitly on the Agent.
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of

@@ -13,11 +13,11 @@ notify: "@webhook-rca"
 tags: [rca-sim, env:rca-sim]
 
 monitors:
-  - name: "rca-sim latency p95 by service"
+  - name: "rca-sim latency by service"
     id_key: latency
     type: metric alert
-    query: "avg(last_1m):p95:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service} > 0.5"
-    message: "p95 latency on {{service.name}} is {{value}}s."
+    query: "avg(last_1m):avg:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service} > 0.5"
+    message: "Mean latency on {{service.name}} is {{value}}s."
     thresholds: {critical: 0.5, warning: 0.3, critical_recovery: 0.25}
 
   - name: "rca-sim error rate by service"

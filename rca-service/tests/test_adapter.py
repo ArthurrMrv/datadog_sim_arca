@@ -32,6 +32,25 @@ def test_points_are_seconds_and_services_are_normalized():
     assert series[0].points == ((1_726_830_000, 1.5),)
 
 
+def test_real_client_points_are_parsed():
+    """The client returns `Point` models, not lists.
+
+    A fixture of plain lists passed `parse_series` happily while the live path raised
+    `object of type 'Point' has no len()` on every family. This feeds the real model.
+    """
+    from datadog_api_client.v1.model.point import Point
+
+    series = {
+        "tag_set": ["kube_deployment:cartservice"],
+        "pointlist": [Point([1_726_830_000_000.0, 1.5]), Point([1_726_830_005_000.0, 2.5])],
+    }
+
+    parsed = list(parse_series(SPEC, [series]))
+
+    assert parsed[0].service == "cartservice"
+    assert parsed[0].points == ((1_726_830_000, 1.5), (1_726_830_005, 2.5))
+
+
 def test_series_without_the_group_tag_is_skipped():
     """A missing tag means the query is wrong; inventing a service name would hide that."""
     assert list(parse_series(SPEC, [{"tag_set": ["env:rca-sim"], "pointlist": []}])) == []
@@ -75,7 +94,7 @@ def test_frame_is_prism_shaped(frame):
     assert frame.columns[0] == "time"
     assert frame["time"].dtype == np.int64
     assert len(frame) == (BASELINE + POST) // STEP + 1
-    assert "cartservice_latency_p95" in frame.columns
+    assert "cartservice_latency_avg" in frame.columns
     # Flat at zero on a healthy system, so it carries no information and is dropped.
     assert not [c for c in frame.columns if c.endswith("_error_rate")]
 
