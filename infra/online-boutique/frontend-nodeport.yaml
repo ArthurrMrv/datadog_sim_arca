@@ -1,13 +1,11 @@
-# Reaches the frontend through the kind port mapping (localhost:8080).
+# Upstream v0.10.2 already ships frontend-external as a LoadBalancer, which never gets an address on
+# kind. Patch it to a NodePort so the kind port mapping reaches it (localhost:8080).
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-external
 spec:
   type: NodePort
-  selector:
-    app: frontend
   ports:
     - port: 80
-      targetPort: 8080
       nodePort: 30080
