@@ -103,11 +103,11 @@ def test_ground_truth_round_trips(tmp_path):
 def test_cooldown_outlasts_the_baseline_window():
     """A campaign's own pacing must not put the previous fault inside the next one's baseline.
 
-    inject.py starts the next fault at `t_start + duration + cooldown`, and that incident's baseline
-    reaches `baseline_seconds` back from there. If cooldown is shorter, the reference window contains
-    the tail of the previous fault -- inflating the mean and std for exactly the services it touched,
-    which suppresses the next fault's scores. At cooldown=300 with a 600s baseline, half of every
-    reference window was the previous fault at full strength.
+    inject.py starts the next fault at `t_start + duration + cooldown`, and that incident's
+    baseline reaches `baseline_seconds` back from there. If cooldown is shorter, the reference
+    window contains the tail of the previous fault -- inflating the mean and std for exactly the
+    services it touched, which suppresses the next fault's scores. At cooldown=300 with a 600s
+    baseline, half of every reference window was the previous fault at full strength.
     """
     import pathlib
 
