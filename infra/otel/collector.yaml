@@ -1,0 +1,56 @@
+# OTel Collector config (Phase 3): traces in, spanmetrics out as ordinary Datadog metrics (D6).
+# Mounted as a ConfigMap by infra/otel/deployment.yaml.
+# VERIFY(docs/verified.md V5): the resulting metric names and their namespace prefix for this Collector
+# version, then write them into rca-service/app/adapter/queries.yaml.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+connectors:
+  spanmetrics:
+    # Cardinality is the one real risk of this design: every dimension multiplies the custom metric
+    # series count. service.name is what the adapter groups by; span.kind separates server from client
+    # spans; status.code is the error signal. Nothing else (no http.route) until the allowance is known.
+    dimensions:
+      - name: span.kind
+      - name: status.code
+    histogram:
+      explicit:
+        buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2500ms]
+    # Match the Agent's 5s collection so trace metrics line up with container metrics on one grid (D8).
+    metrics_flush_interval: 5s
+    namespace: traces.span.metrics
+
+processors:
+  batch:
+    timeout: 5s
+
+exporters:
+  # Single egress point: the Agent already holds the API key.
+  otlp/datadog-agent:
+    endpoint: datadog-agent.datadog.svc.cluster.local:4317
+    tls:
+      insecure: true
+  # Optional (D7): individual traces for debugging. Harmless to leave configured; the pipeline never
+  # reads it.
+  otlp/jaeger:
+    endpoint: jaeger.observability.svc.cluster.local:4317
+    tls:
+      insecure: true
+
+service:
+  telemetry:
+    metrics:
+      level: basic
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [spanmetrics, otlp/jaeger]
+    metrics:
+      receivers: [spanmetrics]
+      processors: [batch]
+      exporters: [otlp/datadog-agent]

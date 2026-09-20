@@ -1,0 +1,20 @@
+# Network delay: the classic propagating fault. Latency rises on the target *and* on everything calling
+# it, which is exactly the case PRISM's internal/external split is meant to resolve.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: $fault_id
+  namespace: shop
+spec:
+  action: delay
+  mode: all
+  duration: ${duration}s
+  direction: to
+  selector:
+    namespaces: [shop]
+    labelSelectors:
+      app: $service
+  delay:
+    latency: $latency
+    jitter: $jitter
+    correlation: "50"

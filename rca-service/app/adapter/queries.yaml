@@ -1,0 +1,53 @@
+# The metric families pulled for every incident (Phase 5.2).
+#
+# Family names are not free: PRISM classifies a property by its FIRST token, so `cpu`, `mem`,
+# `latency_p95`, `error_rate` and `workload` are recognised while `net_rx` or `p95` would be silently
+# excluded from the ranking (see CLAUDE.md, Data contract). Each column becomes `{service}_{name}`.
+#
+# VERIFY(docs/verified.md V3, V5): every metric name and tag below must be checked in the Metrics
+# Explorer against the pinned Agent and Collector versions before the first campaign.
+
+step_seconds: 5
+namespace: shop
+# A column that is missing more than this fraction of the window is dropped and reported: a series that
+# sparse says the metric was not really collected, and its statistics would be noise.
+max_nan_fraction: 0.5
+# Short gaps are carried forward at most this many steps; longer gaps stay NaN (PRISM is NaN-safe).
+ffill_limit_steps: 2
+
+families:
+  # --- internal properties: local resource state (USE) -------------------------------------------
+  - name: cpu
+    query: "avg:container.cpu.usage{kube_namespace:shop} by {kube_deployment}"
+    group_by: kube_deployment
+    rollup: avg
+
+  - name: mem
+    # Bytes on purpose: PRISM's `preprocess` divides every `*_mem` column by 1e6 itself.
+    query: "avg:container.memory.usage{kube_namespace:shop} by {kube_deployment}"
+    group_by: kube_deployment
+    rollup: avg
+
+  # --- external properties: boundary-observable QoS (RED), from spanmetrics (D6) ------------------
+  - name: latency_p95
+    query: "p95:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service}"
+    group_by: service
+    rollup: avg
+
+  - name: error_rate
+    query: "sum:traces.span.metrics.calls.count{env:rca-sim,status.code:STATUS_CODE_ERROR} by {service}.as_rate()"
+    group_by: service
+    rollup: sum
+
+  - name: workload
+    query: "sum:traces.span.metrics.calls.count{env:rca-sim,span.kind:server} by {service}.as_rate()"
+    group_by: service
+    rollup: sum
+
+  # --- kept for the report, not for the ranking ---------------------------------------------------
+  # `restarts` matches no PRISM property class, so PRISM lists it as unclassified and it contributes no
+  # score. It stays because a kill or OOM fault is unreadable without it.
+  - name: restarts
+    query: "sum:kubernetes.containers.restarts{kube_namespace:shop} by {kube_deployment}"
+    group_by: kube_deployment
+    rollup: max

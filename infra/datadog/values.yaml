@@ -1,0 +1,68 @@
+# Helm values for the datadog/datadog chart (Phase 2).
+# VERIFY(docs/verified.md V4): the keys that actually apply 5s collection for the chart version pinned in
+# infra/scripts/up.sh, then confirm in the Metrics Explorer that points really arrive every 5s.
+datadog:
+  # Site is the host part of your Datadog URL (V1). Set DD_SITE in .env; up.sh passes it as --set.
+  site: datadoghq.eu
+  clusterName: rca-sim
+  tags:
+    - env:rca-sim
+  apiKeyExistingSecret: datadog-secret
+
+  kubelet:
+    # kind's kubelet serves a self-signed certificate.
+    tlsVerify: false
+
+  # The OTel Collector ships spanmetrics here, so there is a single egress point and a single API key (D6).
+  otlp:
+    receiver:
+      protocols:
+        grpc:
+          enabled: true
+          endpoint: 0.0.0.0:4317
+        http:
+          enabled: true
+          endpoint: 0.0.0.0:4318
+
+  # 5s collection (D8). The 15s default leaves ~4 points in a 1-minute window, far too few for PRISM's
+  # per-property statistics.
+  confd:
+    container.yaml: |-
+      init_config:
+      instances:
+        - min_collection_interval: 5
+    kubelet.yaml: |-
+      init_config:
+      instances:
+        - min_collection_interval: 5
+
+  # Everything the pipeline does not use, to keep the Agent light and the plan's allowances untouched.
+  logs:
+    enabled: false
+  apm:
+    portEnabled: false
+  processAgent:
+    enabled: false
+    processCollection: false
+  networkMonitoring:
+    enabled: false
+  serviceMonitoring:
+    enabled: false
+  orchestratorExplorer:
+    enabled: false
+
+clusterAgent:
+  enabled: true
+  metricsProvider:
+    enabled: false
+
+agents:
+  containers:
+    agent:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi

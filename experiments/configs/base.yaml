@@ -1,0 +1,22 @@
+# A live evaluation campaign (Phase 7).
+#
+# Total wall-clock time is roughly repetitions x len(faults) x len(services) x (duration + cooldown),
+# plus the fault-free periods. The defaults below are one overnight run.
+
+duration_seconds: 300        # how long each fault stays active
+cooldown_seconds: 300        # back to baseline before the next injection (Phase 4.3)
+incident_timeout_seconds: 420  # give up waiting for an alert after this: that is a missed detection
+match_slack_seconds: 120     # how far the estimated anomaly time may sit from the injection
+repetitions: 3
+
+faults: [cpu, mem, delay, loss, kill]
+
+# Targets spread across the call graph: a leaf, a middle service, the entry point, and a datastore
+# client. A fault at the entry point has almost no downstream, which is the easy case; a fault deep in
+# the graph is where a symptom-based ranking goes wrong.
+services: [cartservice, productcatalogservice, recommendationservice, frontend]
+
+# Deliberate quiet periods. Without them, false alarms cannot be measured at all: a campaign that only
+# ever runs under a fault has no idea how often the detector fires on nothing.
+fault_free_periods: 4
+fault_free_seconds: 600

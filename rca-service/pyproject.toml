@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rca-sim-service"
+version = "0.1.0"
+description = "Datadog -> PRISM root cause analysis service for rca-sim"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.27",
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "pyarrow>=15",            # parquet, so every incident can be re-analysed offline
+  "datadog-api-client>=2.20",
+  "python-dotenv>=1.0",
+  "PyYAML>=6.0",
+  "httpx>=0.27",
+  # PRISM itself. Installed separately as an editable checkout so research changes land here immediately:
+  #   pip install -e ../automated_root_cause_analysis
+  # It declares its own dependencies only under an extra, hence pandas/numpy above.
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[tool.setuptools]
+packages = ["app", "app.adapter"]
+
+[tool.setuptools.package-data]
+"app.adapter" = ["*.yaml"]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

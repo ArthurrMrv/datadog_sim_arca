@@ -1,0 +1,17 @@
+# Code-level fault: the target replies with an error status for a share of requests. Error rate moves
+# while resource metrics barely do — the case where internal-only ranking has nothing to work with.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: $fault_id
+  namespace: shop
+spec:
+  mode: all
+  duration: ${duration}s
+  target: Response
+  port: $port
+  abort: true
+  selector:
+    namespaces: [shop]
+    labelSelectors:
+      app: $service

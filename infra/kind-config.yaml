@@ -1,0 +1,13 @@
+# Single node: one node = one Datadog host (D3), which keeps the student plan's 10-host limit untouched.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: rca-sim
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Online Boutique frontend, for eyeballing the app at http://localhost:8080.
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+# Chaos Mesh talks to the node's own containerd at /run/containerd/containerd.sock, which already exists
+# inside a kind node — the host socket must not be mounted in (V6).
