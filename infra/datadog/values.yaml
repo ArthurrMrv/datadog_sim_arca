@@ -65,6 +65,11 @@ agents:
         # every latency query and the latency monitor return nothing.
         - name: DD_OTLP_CONFIG_METRICS_HISTOGRAMS_MODE
           value: distributions
+        # Set explicitly because the chart's own default binds the receiver to localhost, where the
+        # Collector's `connection refused` came from: the Service resolved and the port was published,
+        # but nothing outside the Agent's own network namespace could connect.
+        - name: DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT
+          value: 0.0.0.0:4317
       resources:
         requests:
           cpu: 100m

@@ -183,12 +183,23 @@ def parse_series(spec: QuerySpec, series: Iterable) -> Iterable[RawSeries]:
         if not service:
             log.warning("family %s: series without a %s tag, skipped", spec.name, spec.group_by)
             continue
-        points = tuple(
-            (int(point[0]) // 1000, float(point[1]))
-            for point in _as_list(_get(item, "pointlist"))
-            if len(point) >= 2 and point[1] is not None
+        pairs = (_point(point) for point in _as_list(_get(item, "pointlist")))
+        yield RawSeries(
+            family=spec.name, service=service, points=tuple(p for p in pairs if p is not None)
         )
-        yield RawSeries(family=spec.name, service=service, points=points)
+
+
+def _point(point) -> tuple[int, float] | None:
+    """One point as (UTC unix seconds, value), or None if it carries no value.
+
+    The client wraps each point in a `Point` model that is neither sized nor indexable -- only
+    `.value` reaches the underlying `[epoch_milliseconds, value]` pair. A fixture of plain lists
+    hides that entirely, so `tests/test_adapter.py` now feeds real `Point` objects.
+    """
+    pair = getattr(point, "value", point)
+    if pair is None or len(pair) < 2 or pair[1] is None:
+        return None
+    return int(pair[0]) // 1000, float(pair[1])
 
 
 def _get(item, attribute: str):

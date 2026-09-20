@@ -65,7 +65,7 @@ def test_prism_reads_the_frame_and_finds_the_root_cause(frame):
     ranking = rank(frame, ANOMALY_TIME, "prism")
 
     assert ranking.items[0].service == "cartservice"
-    assert ranking.items[0].witness_metric in ("cpu", "latency_p95")
+    assert ranking.items[0].witness_metric in ("cpu", "latency_avg")
     assert ranking.diagnostics["n_unclassified"] == 0
 
 

@@ -14,10 +14,10 @@
     {
       "definition": {
         "type": "timeseries",
-        "title": "p95 latency by service (spanmetrics)",
+        "title": "mean latency by service (spanmetrics)",
         "requests": [
           {
-            "q": "p95:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service}",
+            "q": "avg:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service}",
             "display_type": "line"
           }
         ]

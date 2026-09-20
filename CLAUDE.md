@@ -73,7 +73,7 @@ computed from the wrong thing.
   - internal: `cpu`, `mem`, `memory`, `disk`, `diskio`, `socket`, `sockets`
   - external: `latency`, `lat`, `error`, `errors`, `duration`, `rt`, `workload`
 
-  So families are `cpu`, `mem`, `latency_p95`, `error_rate`, `workload` — `net_rx` or `p95` would be
+  So families are `cpu`, `mem`, `latency_avg`, `error_rate`, `workload` — `net_rx` or `p95` would be
   collected, stored, charted, and never scored.
 - Floats; NaN allowed and reported. PRISM's `preprocess` drops constant columns and any column all-NaN
   in a window.

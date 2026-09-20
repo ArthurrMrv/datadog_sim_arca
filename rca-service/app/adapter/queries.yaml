@@ -29,8 +29,13 @@ families:
     rollup: avg
 
   # --- external properties: boundary-observable QoS (RED), from spanmetrics (D6) ------------------
-  - name: latency_p95
-    query: "p95:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service}"
+  # `avg`, not `p95`: percentile aggregation on a Datadog distribution has to be enabled per metric
+  # (`include_percentiles`), and until it is, a p95 query fails with
+  # `missing_aggregation :: AGG_P95`. For the faults here the mean moves enormously anyway -- a 200ms
+  # injected delay against a ~5ms baseline -- so the tail buys little. To use p95 instead, enable
+  # percentiles on traces.span.metrics.duration and rename this family to `latency_p95`.
+  - name: latency_avg
+    query: "avg:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service}"
     group_by: service
     rollup: avg
 
