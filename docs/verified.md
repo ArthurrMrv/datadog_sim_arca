@@ -72,6 +72,15 @@ Checked through the Datadog MCP server against the org this session is connected
 monitor alerts on must be one the adapter pulls, or the incident is explained from telemetry nobody
 alerted on.
 
+## Online Boutique v0.10.2 — checked against the tagged tree, 2026-09-20
+
+| Fact | Consequence |
+|---|---|
+| The release has **no `kubernetes-manifests.yaml` asset**; the manifest lives at `release/kubernetes-manifests.yaml` in the tagged tree | `kustomization.yaml` points at `raw.githubusercontent.com/.../v0.10.2/release/kubernetes-manifests.yaml`. The release-asset URL 404s, which fails `make up` at the first step |
+| 12 Deployments, one container each: `server` everywhere except `redis-cart` (`redis`) and `loadgenerator` (`main`) | The tracing patch targets `server` on `(frontend\|.*service)`, which is right |
+| Every container **already has requests and limits**, tuned per runtime: 128Mi for the Go services, 300Mi for `adservice` (JVM), 450Mi for `recommendationservice` (Python), 512Mi for `loadgenerator` | Phase 1.3's uniform-resource patch was **removed**: flattening everything to 256Mi OOM-kills those two on startup. Upstream totals are 1570m / 1368Mi requested, 2825m / 2542Mi limited |
+| Most services cap at 128Mi | The `mem` fault default dropped from 220Mi to 100Mi. 220Mi against a 128Mi limit is an instant OOM kill, which is the `kill` fault, not memory pressure |
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of

@@ -31,7 +31,7 @@ NAMESPACE = "shop"
 # without killing the service outright. Override any of them with --set key=value.
 DEFAULTS: dict[str, dict[str, str]] = {
     "cpu": {"workers": "2", "load": "80"},
-    "mem": {"workers": "1", "size": "220Mi"},
+    "mem": {"workers": "1", "size": "100Mi"},
     "delay": {"latency": "200ms", "jitter": "50ms"},
     "loss": {"loss": "20"},
     "disk": {"volume_path": "/tmp", "delay": "100ms", "percent": "80"},
