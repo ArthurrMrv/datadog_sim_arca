@@ -66,7 +66,10 @@ def run_campaign(config: dict, settings, dry_run: bool = False) -> None:
     random.shuffle(plan)  # so a drift in the cluster does not line up with one fault type
     quiet = config.get("fault_free_periods", 0)
 
-    print(f"{len(plan)} injections + {quiet} fault-free periods")
+    per = config["duration_seconds"] + config["cooldown_seconds"]
+    hours = (len(plan) * per + quiet * config.get("fault_free_seconds", 0)) / 3600
+    print(f"{len(plan)} injections + {quiet} fault-free periods "
+          f"= {hours:.1f} h of wall clock at {per // 60} min each")
     for index, (fault, service) in enumerate(plan, start=1):
         print(f"[{index}/{len(plan)}] {fault} -> {service}")
         if dry_run:

@@ -4,10 +4,18 @@
 # plus the fault-free periods. The defaults below are one overnight run.
 
 duration_seconds: 300        # how long each fault stays active
-cooldown_seconds: 300        # back to baseline before the next injection (Phase 4.3)
+# Cooldown must exceed the baseline window, not just the recovery. inject.py starts the next fault at
+# t_start + duration + cooldown, and that incident's baseline reaches back `baseline_seconds` (600s)
+# from there. At cooldown=300 the baseline was [t_start_prev, t_start_prev+600] -- half of it the
+# previous fault at full strength, inflating the reference mean and std for exactly the services the
+# last fault touched. 600 + 120s of recovery margin is the floor; tests/test_evaluation.py pins it.
+cooldown_seconds: 720
 incident_timeout_seconds: 420  # give up waiting for an alert after this: that is a missed detection
 match_slack_seconds: 120     # how far the estimated anomaly time may sit from the injection
-repetitions: 3
+# 17 min per injection (300s fault + 720s cooldown). 1 repetition over 5 faults x 4 services is
+# 20 injections, about 5.7 h -- an overnight run. Raise it once the loop is proven: 3 repetitions is
+# 60 injections and 17 h. `--dry-run` prints the estimate for whatever you set here.
+repetitions: 1
 
 faults: [cpu, mem, delay, loss, kill]
 

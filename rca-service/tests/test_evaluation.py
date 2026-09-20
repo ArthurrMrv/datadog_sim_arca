@@ -98,3 +98,27 @@ def test_ground_truth_round_trips(tmp_path):
     assert load_ground_truth(path) == [
         Fault("cpu-1", "cpu", "cartservice", 1_000_000, 1_000_300, {"workers": "2"})
     ]
+
+
+def test_cooldown_outlasts_the_baseline_window():
+    """A campaign's own pacing must not put the previous fault inside the next one's baseline.
+
+    inject.py starts the next fault at `t_start + duration + cooldown`, and that incident's baseline
+    reaches `baseline_seconds` back from there. If cooldown is shorter, the reference window contains
+    the tail of the previous fault -- inflating the mean and std for exactly the services it touched,
+    which suppresses the next fault's scores. At cooldown=300 with a 600s baseline, half of every
+    reference window was the previous fault at full strength.
+    """
+    import pathlib
+
+    import yaml
+    from app.config import WindowConfig
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    recovery_margin = 120
+    for path in sorted((root / "experiments" / "configs").glob("*.yaml")):
+        config = yaml.safe_load(path.read_text())
+        assert config["cooldown_seconds"] >= WindowConfig().baseline_seconds + recovery_margin, (
+            f"{path.name}: cooldown {config['cooldown_seconds']}s does not clear a "
+            f"{WindowConfig().baseline_seconds}s baseline plus {recovery_margin}s of recovery"
+        )
