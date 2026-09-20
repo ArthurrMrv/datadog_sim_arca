@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 from app.adapter.base import QuerySpec
 from app.adapter.datadog import RawSeries, align, grid, parse_series, to_frame, with_rollup
@@ -106,3 +108,41 @@ def test_metadata_records_how_the_frame_was_built(frame, query_config):
     assert meta["window"] == {"start": 1000, "end": 1005}
     assert meta["step_seconds"] == STEP
     assert "cpu" in meta["queries"]
+
+
+def test_absent_error_family_becomes_zero_not_missing(query_config):
+    """A healthy baseline emits no error spans at all, so Datadog returns no series.
+
+    Left absent, the column is dropped twice over -- by the adapter's NaN threshold and by PRISM's
+    "observed in both windows" rule -- so the error signal would never reach a ranking. Zero is the
+    truthful value, and a column that is zero before the fault and non-zero after is exactly what
+    PRISM's zero-scale handling exists for.
+    """
+    spec = QuerySpec(name="error_rate", query="sum:calls{status.code:status_code_error} by {s}",
+                     group_by="service", rollup="sum", absent_means_zero=True)
+    cfg = replace(query_config, families=(query_config.families[0], spec))
+    times = list(range(1000, 1100, STEP))
+    series = [RawSeries("cpu", "cartservice", tuple((t, 1.0 + t % 3) for t in times))]
+
+    _, meta = to_frame(series, 1000, 1095, STEP, cfg)
+
+    assert meta["zero_filled"] == ["cartservice_error_rate"]
+    # Zero throughout carries no information, so it is then dropped as constant -- correctly.
+    assert "cartservice_error_rate" in meta["dropped_constant"]
+
+
+def test_error_family_survives_when_the_fault_produces_errors(query_config):
+    """The case that matters: absent in the baseline, present once the fault starts."""
+    spec = QuerySpec(name="error_rate", query="sum:calls{status.code:status_code_error} by {s}",
+                     group_by="service", rollup="sum", absent_means_zero=True)
+    cfg = replace(query_config, families=(query_config.families[0], spec))
+    times = list(range(1000, 1100, STEP))
+    series = [
+        RawSeries("cpu", "cartservice", tuple((t, 1.0 + t % 3) for t in times)),
+        RawSeries("error_rate", "cartservice", tuple((t, 0.0 if t < 1050 else 4.0) for t in times)),
+    ]
+
+    frame, meta = to_frame(series, 1000, 1095, STEP, cfg)
+
+    assert "cartservice_error_rate" in frame.columns
+    assert meta["zero_filled"] == []

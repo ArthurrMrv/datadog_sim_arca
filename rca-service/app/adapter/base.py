@@ -24,6 +24,11 @@ class QuerySpec:
     query: str
     group_by: str
     rollup: str = "avg"
+    # For a count filtered on an attribute, "no matching events" comes back as *no series at all*,
+    # not as zeros, so a healthy baseline makes the column absent rather than flat. Absent is fatal:
+    # the adapter drops a mostly-NaN column, and PRISM drops any column with no observation in the
+    # reference window, so the error signal would vanish from every ranking. Zero is the truth.
+    absent_means_zero: bool = False
 
 
 @dataclass(frozen=True)
