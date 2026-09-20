@@ -4,8 +4,9 @@
 # `latency_p95`, `error_rate` and `workload` are recognised while `net_rx` or `p95` would be silently
 # excluded from the ranking (see CLAUDE.md, Data contract). Each column becomes `{service}_{name}`.
 #
-# VERIFY(docs/verified.md V3, V5): every metric name and tag below must be checked in the Metrics
-# Explorer against the pinned Agent and Collector versions before the first campaign.
+# Every metric name and tag value below was read off the live metrics (docs/verified.md), not guessed.
+# The OTel enum values arrive lowercased whole -- `span_kind_server`, `status_code_error` -- not as the
+# bare `server` / `error` they look like they should be.
 
 step_seconds: 5
 namespace: shop
@@ -35,17 +36,17 @@ families:
   # injected delay against a ~5ms baseline -- so the tail buys little. To use p95 instead, enable
   # percentiles on traces.span.metrics.duration and rename this family to `latency_p95`.
   - name: latency_avg
-    query: "avg:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service}"
+    query: "avg:traces.span.metrics.duration{env:rca-sim,span.kind:span_kind_server} by {service}"
     group_by: service
     rollup: avg
 
   - name: error_rate
-    query: "sum:traces.span.metrics.calls{env:rca-sim,status.code:error} by {service}.as_rate()"
+    query: "sum:traces.span.metrics.calls{env:rca-sim,status.code:status_code_error} by {service}.as_rate()"
     group_by: service
     rollup: sum
 
   - name: workload
-    query: "sum:traces.span.metrics.calls{env:rca-sim,span.kind:server} by {service}.as_rate()"
+    query: "sum:traces.span.metrics.calls{env:rca-sim,span.kind:span_kind_server} by {service}.as_rate()"
     group_by: service
     rollup: sum
 

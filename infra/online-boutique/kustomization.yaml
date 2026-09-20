@@ -45,6 +45,16 @@ patches:
                     value: otel-collector.observability.svc.cluster.local:4317
                   - name: OTEL_EXPORTER_OTLP_ENDPOINT
                     value: http://otel-collector.observability.svc.cluster.local:4317
+                  # Without this the SDKs fall back to `unknown_service` /
+                  # `unknown_service:<binary>`, so spanmetrics lumps those services into one
+                  # meaningless component that never joins with `kube_deployment` -- and PRISM
+                  # cannot pair a service's internal and external properties, which is the whole
+                  # distinction it ranks on. Taken from the pod's own `app` label, so one patch
+                  # serves all ten instrumented services.
+                  - name: OTEL_SERVICE_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.labels['app']
 
   # Steady, moderate load: a stable baseline is what makes an anomaly detectable at all.
   - target:

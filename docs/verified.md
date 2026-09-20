@@ -190,6 +190,30 @@ Same class of defect as `Point`, checked before it could bite:
 | `WebhooksIntegration` | has `name`, `url`, `payload`, `custom_headers`, `encode_as` |
 | `list_monitors` | accepts `monitor_tags`, `group_states`, `page`, `page_size` |
 
+## spanmetrics tags — read off the live metric, 2026-09-20
+
+Queried `traces.span.metrics.calls` in the running org. Both metrics exist, so the whole span path
+(instrumented services -> Collector -> spanmetrics -> Agent -> Datadog) works. The **tag values** were
+wrong twice over:
+
+| Tag | Actual values | Guessed |
+|---|---|---|
+| `span.kind` | `span_kind_server`, `span_kind_client` | `server` |
+| `status.code` | `status_code_error`, `status_code_unset` | first `STATUS_CODE_ERROR`, then `error` |
+
+The OTel enum names arrive **lowercased whole**, not shortened. Both guesses matched nothing, and a
+filter that matches nothing returns no series — indistinguishable from a broken pipeline.
+
+`service.name` values were `currencyservice`, `paymentservice`, `unknown_service`,
+`unknown_service:server`, `unknown_service:checkoutservice`: only the two Node services set a service
+name of their own. The SDKs need **`OTEL_SERVICE_NAME`**, which the kustomize overlay now sets from each
+pod's own `app` label — one patch for all ten instrumented services. Without it, spanmetrics groups
+most services under `unknown_service*`, which never joins with `kube_deployment`, so a service's
+internal and external properties land on different components — exactly the distinction PRISM ranks on.
+
+Also confirmed: **V2 closed** (the demo's tracing env vars work — spans arrive), `metric_type: count` on
+the calls metric, `is_percentiles_enabled: false` on it, and `host: rca-sim-control-plane-rca-sim`.
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of
