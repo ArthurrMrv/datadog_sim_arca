@@ -109,6 +109,16 @@ Notes:
   sends as `appKeyAuth`, so switching from an application key needed no client change.
 - The Agent still needs a real **API key**: a token does not replace it for metric intake.
 
+## Datadog Agent OTLP — verified on a running cluster, 2026-09-20
+
+| Fact | Evidence |
+|---|---|
+| The Agent Service is named after the Helm release, i.e. **`datadog`**, so the in-cluster address is `datadog.datadog.svc.cluster.local` | `kubectl -n datadog get svc` -> `datadog  ClusterIP  8125/UDP,8126/TCP,4317/TCP,4318/TCP`. `datadog-agent...` (the earlier guess) does not exist and failed as `name resolver error: produced zero addresses`, so no trace metric ever left the Collector |
+| The DaemonSet also exposes OTLP gRPC on a **hostPort**: `containerPort 4317, hostPort 4317, name otlpgrpcport` | `kubectl -n datadog get ds datadog -o jsonpath=...`. A `status.hostIP` downward-API reference is therefore a valid alternative target |
+| **V4 (OTLP half) closed**: the receiver keys in `infra/datadog/values.yaml` do take effect for chart 3.70.4 | `agent status` reports `OTLP / Status: Enabled / Collector status: Running`, and `feature_otlp_enabled: true` |
+| An exporter with no resolvable target is not harmless | With `DEPLOY_JAEGER=0` (the default) the `otlp/jaeger` exporter filled its queue (`sending queue is full`), and those errors propagate back to the receiver, making the instrumented services retry their exports. Jaeger is no longer in the default traces pipeline; enabling D7 means adding the exporter *and* `DEPLOY_JAEGER=1` |
+| `agent status` section headers are at column 0 between `=====` rules | So `grep '^  Forwarder'` matches nothing; use `grep -A5 'API Keys status'` or `sed -n '/^Forwarder/,/^Endpoints/p'` |
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of

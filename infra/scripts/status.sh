@@ -21,5 +21,5 @@ kubectl -n observability get deployment otel-collector 2>/dev/null || echo "not 
 kubectl -n observability logs deployment/otel-collector --tail=5 2>/dev/null || true
 
 echo; echo "== freshness of the metrics the adapter reads"
-.venv/bin/python -m app.cli freshness 2>/dev/null \
-  || echo "(needs the venv and .env with DD_API_KEY/DD_APP_KEY: run make venv)"
+.venv/bin/python -m app.cli freshness \
+  || echo "(needs the venv and .env with DD_API_KEY/DD_ACCESS_TOKEN: run make venv)"
