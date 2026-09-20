@@ -119,6 +119,27 @@ Notes:
 | An exporter with no resolvable target is not harmless | With `DEPLOY_JAEGER=0` (the default) the `otlp/jaeger` exporter filled its queue (`sending queue is full`), and those errors propagate back to the receiver, making the instrumented services retry their exports. Jaeger is no longer in the default traces pipeline; enabling D7 means adding the exporter *and* `DEPLOY_JAEGER=1` |
 | `agent status` section headers are at column 0 between `=====` rules | So `grep '^  Forwarder'` matches nothing; use `grep -A5 'API Keys status'` or `sed -n '/^Forwarder/,/^Endpoints/p'` |
 
+## Credential precedence — diagnosed on a live setup, 2026-09-20
+
+`up.sh` reads `.env` with `set -a && . ./.env`, so the file wins over anything already exported.
+`load_settings()` used `load_dotenv(override=False)`, the conventional precedence, so an exported
+variable won instead. The two disagreed, and the failure mode was silent: after correcting `DD_SITE` in
+`.env`, a shell that had earlier run `source .env` still held the old site, so `up.sh` gave the Agent
+the right one while every API read returned `401 {"errors":["Unauthorized"]}`. `curl` with freshly
+sourced values returned 200, which made it look like a client bug.
+
+Both now let `.env` win, and `app.cli freshness` prints the resolved site and credential lengths first,
+because every credential failure looks identical from the outside.
+
+Reference points established while diagnosing it, on site `us5.datadoghq.com`:
+
+- API key is 32 characters; the Service Access Token was 65. `GET /api/v1/validate` with the API key
+  alone returns 200, and `GET /api/v1/query` returns 200 **both** with `DD-APPLICATION-KEY: <token>`
+  and with `Authorization: Bearer <token>` — so a SAT in the application-key header does work on v1,
+  which is what the client sends.
+- Datadog distinguishes the two credentials: `403 {"errors":["Forbidden"]}` is the API key,
+  `401 {"errors":["Unauthorized"]}` is the application key / token.
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of

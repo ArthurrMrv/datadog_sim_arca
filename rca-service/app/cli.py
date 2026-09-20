@@ -63,6 +63,10 @@ def freshness(args) -> int:
     import time
 
     settings = load_settings()
+    # Printed because every credential failure looks the same from the outside: knowing which site
+    # and key length resolved is what separates a wrong .env from a genuinely empty metric.
+    print(f"site={settings.dd_site}  api_key={len(settings.dd_api_key)} chars  "
+          f"token={len(settings.dd_access_token)} chars\n")
     now = int(time.time())
     for family, last in DatadogBackend(settings).freshness().items():
         age = f"{now - last}s ago" if last else "no data"

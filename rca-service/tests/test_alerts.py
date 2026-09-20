@@ -63,10 +63,11 @@ def test_a_later_fault_is_a_new_incident():
 
 
 def _client(monkeypatch, secret="s3cret"):
+    """Settings built explicitly, so the suite never depends on a developer's local `.env`."""
     from app import main
+    from app.config import Settings
 
-    monkeypatch.setenv("WEBHOOK_SECRET", secret)
-    monkeypatch.setenv("DD_API_KEY", "")
+    monkeypatch.setattr(main, "load_settings", lambda: Settings(webhook_secret=secret))
     return TestClient(main.app)
 
 
