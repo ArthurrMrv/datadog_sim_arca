@@ -44,13 +44,8 @@ resume: ## restart a paused cluster, then re-check that metrics are flowing
 	docker start rca-sim-control-plane
 	@sleep 20 && infra/scripts/status.sh
 
-prepull: ## pull the app images on the host and load them into the node
-	@# Two problems at once: the node needs no registry DNS for these, and a recreated cluster reuses
-	@# the host's image cache instead of re-downloading ~1.5 GB.
-	@kubectl kustomize infra/online-boutique | grep -oE 'image: .+' | cut -d' ' -f2 | sort -u \
-	  | while read -r img; do \
-	      echo "== $$img"; docker pull -q "$$img" && kind load docker-image --name rca-sim "$$img"; \
-	    done
+prepull: ## pull every image on the host and load it into the node (or: PREPULL=1 make up)
+	infra/scripts/prepull.sh
 
 status: venv ## pods, Agent checks, Collector, freshness of the metrics the adapter reads
 	infra/scripts/status.sh
