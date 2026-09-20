@@ -15,26 +15,94 @@ injection time.
 - **How to work in this repo:** `CLAUDE.md` (architecture, data contract, conventions).
 - **What has been checked against the live system:** `docs/verified.md`.
 
-## Quick start
+## From an empty machine to a running loop
+
+**0. Prerequisites.** Docker installed and running, ~4 CPUs and ~8 GB RAM free, Python >= 3.11.
 
 ```bash
-cp .env.example .env         # Datadog site, API key, app key, webhook secret
-make venv                    # installs rca-service; PRISM is in-tree, numpy + pandas only
-make test                    # 69 unit tests; no cluster and no Datadog account needed
-make up                      # cluster + app + Agent + Collector + Chaos Mesh  (Phases 1–4)
-make status                  # first thing after `up`: is every metric family arriving?
-make calibrate               # thresholds from a quiet hour, then edit datadog/monitors/monitors.yaml
-make tunnel                  # public URL for the webhook (or skip it and use MODE=poll)
-make monitors URL=https://<tunnel>/webhook
-make rca                     # the RCA service
+# macOS (Docker Desktop installed separately)
+brew install kind kubectl helm cloudflared python@3.11
+```
+```bash
+# Linux (Debian/Ubuntu)
+sudo apt-get update && sudo apt-get install -y docker.io python3-venv curl
+curl -fsSL https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64 -o /tmp/kind && sudo install /tmp/kind /usr/local/bin/kind
+curl -fsSL https://dl.k8s.io/release/v1.30.2/bin/linux/amd64/kubectl -o /tmp/kubectl && sudo install /tmp/kubectl /usr/local/bin/kubectl
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cf && sudo install /tmp/cf /usr/local/bin/cloudflared
+```
+
+**1. Get the repo.** Drop `-b ...` once the branch is merged into the default one.
+```bash
+git clone -b claude/rca-sim-implementation-t214kt https://github.com/ArthurrMrv/datadog_sim_arca.git && cd datadog_sim_arca
+```
+
+**2. Datadog keys.** Create an API key and an Application key in *Organization Settings*; `DD_SITE` is
+the host part of your Datadog URL (`datadoghq.eu`, `datadoghq.com`, `us5.datadoghq.com`, ...).
+```bash
+cp .env.example .env && ${EDITOR:-nano} .env
+```
+
+**3. Install the service.** PRISM is in-tree, so this pulls nothing heavier than pandas.
+```bash
+make venv
+```
+
+**4. Check the checkout before touching the cloud.** 69 tests, no cluster, no account.
+```bash
+make test
+```
+
+**5. Bring up the cluster** (~10 min: kind + Online Boutique + Agent + Collector + Chaos Mesh).
+```bash
+make up
+```
+
+**6. Let the baseline settle for 15 minutes.** Thresholds calibrated on a warming cluster are wrong.
+```bash
+kubectl -n shop get pods -w
+```
+
+**7. Gate: is every metric family arriving?** A family reading "no data" means its query does not match
+what the cluster emits — fix `rca-service/app/adapter/queries.yaml` before going further.
+```bash
+make status
+```
+
+**8. Calibrate thresholds** on a quiet hour, then write the values into `datadog/monitors/monitors.yaml`
+(the ones in git are placeholders).
+```bash
+make calibrate HOURS=1
+```
+
+**9. Expose the webhook** and leave it running; copy the `https://....trycloudflare.com` URL it prints.
+```bash
+make tunnel
+```
+
+**10. Create the monitors, webhook and dashboard.** Put the `RCA_DASHBOARD_ID` it prints into `.env`.
+```bash
+make monitors URL=https://<tunnel-url>/webhook
+```
+
+**11. Start the RCA service** in another terminal (`make rca MODE=poll` instead if you skipped step 9).
+```bash
+make rca
+```
+
+**12. Inject a fault.** A monitor fires in ~2 min; the report lands ~3 min later.
+```bash
 make inject FAULT=delay SERVICE=cartservice DURATION=300
 ```
 
-About three minutes after the monitor fires, a report appears in `results/incidents/<id>/`. Then
-`make eval` runs a whole campaign and `make sweep` re-ranks every stored incident at 1s / 5s / 15s
-resolution.
+**13. Read the result.**
+```bash
+cat results/incidents/*/report.md
+```
 
-`make help` lists every target.
+Then `make eval` runs a full campaign (~3.5 h at `repetitions: 1`, ~10.7 h as configured) and
+`make sweep` re-ranks every stored incident at 1s / 5s / 15s. `make down` deletes the cluster;
+`results/` survives. `make help` lists every target.
 
 ## Status
 
