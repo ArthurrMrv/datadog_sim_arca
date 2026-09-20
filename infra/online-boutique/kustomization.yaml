@@ -8,7 +8,6 @@ namespace: shop
 resources:
   - namespace.yaml
   - https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/v0.10.2/release/kubernetes-manifests.yaml
-  - frontend-nodeport.yaml
 
 labels:
   - includeSelectors: false
@@ -22,6 +21,8 @@ labels:
 # them to one value OOM-kills those two on startup, so upstream's values are kept as they are.
 
 patches:
+  - path: frontend-nodeport.yaml
+
   # Tracing to the OTel Collector. Matches frontend and every *service deployment; redis-cart and
   # loadgenerator are not instrumented and are left alone.
   - target:
