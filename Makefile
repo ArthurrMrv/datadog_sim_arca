@@ -10,7 +10,7 @@ DURATION   ?= 300
 CONFIG     ?= experiments/configs/base.yaml
 MODE       ?= webhook
 
-.PHONY: help venv test lint up down status reconnect clusters prepull pause resume monitors calibrate rca tunnel inject analyze replay eval sweep clean
+.PHONY: help venv test lint up down status reconnect overnight clusters prepull pause resume monitors calibrate rca tunnel inject analyze replay eval sweep clean
 
 help: ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
@@ -62,8 +62,8 @@ status: venv ## pods, Agent checks, Collector, freshness of the metrics the adap
 monitors: venv ## apply the Datadog webhook, monitors and dashboard (URL= public /webhook URL)
 	$(PY) datadog/monitors/apply.py apply $(if $(URL),--url $(URL),)
 
-calibrate: venv ## suggest monitor thresholds from a quiet baseline (Phase 6.1)
-	$(PY) datadog/monitors/apply.py calibrate --hours $(or $(HOURS),1)
+calibrate: venv ## derive monitor thresholds from a quiet baseline (APPLY=1 writes them)
+	$(PY) datadog/monitors/apply.py calibrate --hours $(or $(HOURS),1) $(if $(APPLY),--apply,)
 
 rca: venv ## run the RCA service (MODE=webhook or MODE=poll)
 ifeq ($(MODE),poll)
@@ -84,6 +84,9 @@ analyze: venv ## offline: pull the window around T= (unix seconds) and run PRISM
 replay: venv ## re-rank a stored incident with today's PRISM: ID=
 	PYTHONPATH=rca-service $(PY) -m app.cli replay $(ID)
 
+overnight: venv ## unattended: settle, calibrate, monitors, RCA service, campaign, score
+	infra/scripts/overnight.sh
+
 eval: venv ## full live evaluation campaign (Phase 7)
 	$(PY) experiments/live_eval.py --config $(CONFIG)
 
@@ -91,5 +94,5 @@ sweep: venv ## metric-resolution experiment over stored incidents (Phase 8)
 	$(PY) experiments/granularity_sweep.py
 
 clean: ## remove the venv and caches
-	rm -rf $(VENV) .pytest_cache rca-service/.pytest_cache
+	rm -rf $(VENV) .pytest_cache rca-service/.pytest_cache .ruff_cache rca-service/.ruff_cache
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
