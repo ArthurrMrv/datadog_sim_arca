@@ -1,0 +1,17 @@
+# CPU saturation. With the limits set in Phase 1, this shows up as throttling and rising latency.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: $fault_id
+  namespace: shop
+spec:
+  mode: all
+  duration: ${duration}s
+  selector:
+    namespaces: [shop]
+    labelSelectors:
+      app: $service
+  stressors:
+    cpu:
+      workers: $workers
+      load: $load

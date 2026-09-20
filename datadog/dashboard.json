@@ -1,0 +1,95 @@
+{
+  "title": "rca-sim",
+  "description": "Live view of the metrics the RCA adapter pulls. Every widget uses the same query as rca-service/app/adapter/queries.yaml, so what is seen here is what PRISM is given.",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "service",
+      "prefix": "kube_deployment",
+      "available_values": [],
+      "default": "*"
+    }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "p95 latency by service (spanmetrics)",
+        "requests": [
+          {
+            "q": "p95:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service}",
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "error rate by service (spanmetrics)",
+        "requests": [
+          {
+            "q": "sum:traces.span.metrics.calls.count{env:rca-sim,status.code:STATUS_CODE_ERROR} by {service}.as_rate()",
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "request rate by service (spanmetrics)",
+        "requests": [
+          {
+            "q": "sum:traces.span.metrics.calls.count{env:rca-sim,span.kind:server} by {service}.as_rate()",
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "container CPU vs limit",
+        "requests": [
+          {
+            "q": "avg:container.cpu.usage{kube_namespace:shop,$service} by {kube_deployment}",
+            "display_type": "line"
+          },
+          {
+            "q": "avg:container.cpu.limit{kube_namespace:shop,$service} by {kube_deployment}",
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "container memory vs limit",
+        "requests": [
+          {
+            "q": "avg:container.memory.usage{kube_namespace:shop,$service} by {kube_deployment}",
+            "display_type": "line"
+          },
+          {
+            "q": "avg:container.memory.limit{kube_namespace:shop,$service} by {kube_deployment}",
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "container restarts",
+        "requests": [
+          {
+            "q": "sum:kubernetes.containers.restarts{kube_namespace:shop,$service} by {kube_deployment}",
+            "display_type": "line"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime output: incidents and evaluation runs are reproducible from ground truth.
+results/incidents/
+results/eval/
+results/*.jsonl
+.ruff_cache/

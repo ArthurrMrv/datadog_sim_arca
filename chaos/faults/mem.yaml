@@ -1,0 +1,18 @@
+# Memory pressure. Past the container limit the kernel OOM-kills the process, so this can also produce
+# restarts — which is why the restarts monitor exists (Phase 6.1).
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: $fault_id
+  namespace: shop
+spec:
+  mode: all
+  duration: ${duration}s
+  selector:
+    namespaces: [shop]
+    labelSelectors:
+      app: $service
+  stressors:
+    memory:
+      workers: $workers
+      size: $size

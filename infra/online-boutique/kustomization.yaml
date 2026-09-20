@@ -1,0 +1,75 @@
+# Online Boutique from a pinned release (Phase 1): pinning is what makes experiments reproducible.
+# VERIFY(docs/verified.md V2): the tracing env vars and which services are instrumented in this release.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: shop
+
+resources:
+  - namespace.yaml
+  - https://github.com/GoogleCloudPlatform/microservices-demo/releases/download/v0.10.2/kubernetes-manifests.yaml
+  - frontend-nodeport.yaml
+
+labels:
+  - includeSelectors: false
+    pairs:
+      env: rca-sim
+
+patches:
+  # Requests and limits on every service. Without limits, CPU and memory stress faults change nothing
+  # observable: the pod just uses more of an unbounded budget and no saturation metric moves (Phase 1.3).
+  - target:
+      kind: Deployment
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
+
+  # Tracing to the OTel Collector. Matches frontend and every *service deployment; redis-cart and
+  # loadgenerator are not instrumented and are left alone.
+  - target:
+      kind: Deployment
+      name: (frontend|.*service)
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: patched-by-target
+      spec:
+        template:
+          spec:
+            containers:
+              - name: server
+                env:
+                  - name: ENABLE_TRACING
+                    value: "1"
+                  - name: COLLECTOR_SERVICE_ADDR
+                    value: otel-collector.observability.svc.cluster.local:4317
+                  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                    value: http://otel-collector.observability.svc.cluster.local:4317
+
+  # Steady, moderate load: a stable baseline is what makes an anomaly detectable at all.
+  - target:
+      kind: Deployment
+      name: loadgenerator
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: patched-by-target
+      spec:
+        template:
+          spec:
+            containers:
+              - name: main
+                env:
+                  - name: USERS
+                    value: "10"
+                  - name: RATE
+                    value: "5"

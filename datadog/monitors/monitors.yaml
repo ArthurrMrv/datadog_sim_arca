@@ -1,0 +1,71 @@
+# Datadog monitors as code (Phase 6.1, D17). Thresholds are versioned here so a change to the detector
+# is visible in the same diff as the experiment it affects.
+#
+# Short windows (D9) are what keep detection near 1-2 minutes, and `require_full_window` plus a recovery
+# threshold is what keeps them from firing on single noisy points (D10). Every false alert costs a PRISM
+# run and a row in the evaluation.
+#
+# VERIFY(docs/verified.md V8): the thresholds below are placeholders. Run
+#   python datadog/monitors/apply.py calibrate --hours 1
+# against a steady baseline and write the suggested values back here before the first campaign.
+
+notify: "@webhook-rca"
+tags: [rca-sim, env:rca-sim]
+
+monitors:
+  - name: "rca-sim latency p95 by service"
+    id_key: latency
+    type: metric alert
+    query: "avg(last_1m):p95:traces.span.metrics.duration{env:rca-sim,span.kind:server} by {service} > 0.5"
+    message: "p95 latency on {{service.name}} is {{value}}s."
+    thresholds: {critical: 0.5, warning: 0.3, critical_recovery: 0.25}
+
+  - name: "rca-sim error rate by service"
+    id_key: errors
+    type: metric alert
+    query: >-
+      sum(last_1m):sum:traces.span.metrics.calls.count{env:rca-sim,status.code:STATUS_CODE_ERROR} by {service}.as_count()
+      / sum:traces.span.metrics.calls.count{env:rca-sim,span.kind:server} by {service}.as_count() > 0.05
+    message: "Error ratio on {{service.name}} is {{value}}."
+    thresholds: {critical: 0.05, warning: 0.02, critical_recovery: 0.01}
+
+  - name: "rca-sim container restarts"
+    id_key: restarts
+    type: metric alert
+    # A restart catches kill and OOM faults, which can otherwise pass with barely a latency blip.
+    query: "change(max(last_5m),last_5m):sum:kubernetes.containers.restarts{kube_namespace:shop} by {kube_deployment} > 0"
+    message: "{{kube_deployment.name}} restarted a container."
+    thresholds: {critical: 0}
+
+  - name: "rca-sim cpu saturation"
+    id_key: cpu
+    type: metric alert
+    # Relative to the limit set in Phase 1: catches a resource fault before any user-visible symptom.
+    query: >-
+      avg(last_1m):avg:container.cpu.usage{kube_namespace:shop} by {kube_deployment}
+      / avg:container.cpu.limit{kube_namespace:shop} by {kube_deployment} > 0.9
+    message: "{{kube_deployment.name}} is using {{value}} of its CPU limit."
+    thresholds: {critical: 0.9, warning: 0.75, critical_recovery: 0.6}
+
+  - name: "rca-sim memory saturation"
+    id_key: mem
+    type: metric alert
+    query: >-
+      avg(last_1m):avg:container.memory.usage{kube_namespace:shop} by {kube_deployment}
+      / avg:container.memory.limit{kube_namespace:shop} by {kube_deployment} > 0.9
+    message: "{{kube_deployment.name}} is using {{value}} of its memory limit."
+    thresholds: {critical: 0.9, warning: 0.8, critical_recovery: 0.7}
+
+# Optional stricter main trigger (D10): only fires when latency *and* errors are both bad, which is much
+# harder for noise to produce. Enable it if the campaign shows too many false alarms; the individual
+# monitors stay in place either way, since they are what the report quotes.
+composite:
+  enabled: false
+  name: "rca-sim incident (latency AND errors)"
+  of: [latency, errors]
+  message: "Latency and errors are both degraded."
+
+# Calibration: thresholds should sit above the noise of a steady baseline, not at a round number.
+calibration:
+  percentile: 99
+  margin: 1.5   # threshold = margin * p99 of a quiet hour

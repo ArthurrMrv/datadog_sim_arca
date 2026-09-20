@@ -1,0 +1,19 @@
+# IO latency. Only meaningful for a service that actually touches the path below.
+# VERIFY: volumePath and container name for the target service before counting a miss here.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: $fault_id
+  namespace: shop
+spec:
+  action: latency
+  mode: all
+  duration: ${duration}s
+  selector:
+    namespaces: [shop]
+    labelSelectors:
+      app: $service
+  volumePath: $volume_path
+  path: "$volume_path/**"
+  delay: $delay
+  percent: $percent

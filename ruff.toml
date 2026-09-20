@@ -1,0 +1,20 @@
+# One lint configuration for the whole repo: the service, the chaos scripts, the Datadog scripts and the
+# experiments are one pipeline and are read together.
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "PERF", "RUF"]
+
+# A broken metric family, a failed PRISM variant or an unavailable LLM summary must degrade the run,
+# never lose the incident: those handlers catch everything on purpose and log what they caught.
+ignore = ["BLE001"]
+
+[lint.per-file-ignores]
+# The scripts under chaos/, datadog/ and experiments/ add rca-service to sys.path before importing it;
+# that has to happen before the imports it enables.
+"chaos/*.py" = ["E402"]
+"datadog/**/*.py" = ["E402"]
+"experiments/*.py" = ["E402"]
+# A test that asserts what survives a failure has to let the failure happen.
+"rca-service/tests/test_pipeline.py" = ["S110"]

@@ -1,0 +1,18 @@
+# Packet loss: errors and retries, with latency rising as a side effect.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: $fault_id
+  namespace: shop
+spec:
+  action: loss
+  mode: all
+  duration: ${duration}s
+  direction: to
+  selector:
+    namespaces: [shop]
+    labelSelectors:
+      app: $service
+  loss:
+    loss: $loss
+    correlation: "50"

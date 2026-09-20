@@ -1,0 +1,14 @@
+# Pod kill: one-shot, so `duration` only governs how long inject.py waits before cooling down. Produces a
+# restart plus errors while the replacement pod starts.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: $fault_id
+  namespace: shop
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces: [shop]
+    labelSelectors:
+      app: $service
