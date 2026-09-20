@@ -81,6 +81,32 @@ alerted on.
 | Every container **already has requests and limits**, tuned per runtime: 128Mi for the Go services, 300Mi for `adservice` (JVM), 450Mi for `recommendationservice` (Python), 512Mi for `loadgenerator` | Phase 1.3's uniform-resource patch was **removed**: flattening everything to 256Mi OOM-kills those two on startup. Upstream totals are 1570m / 1368Mi requested, 2825m / 2542Mi limited |
 | Most services cap at 128Mi | The `mem` fault default dropped from 220Mi to 100Mi. 220Mi against a 128Mi limit is an instant OOM kill, which is the `kill` fault, not memory pressure |
 
+## Datadog credentials — read from the API spec, 2026-09-20
+
+Scopes taken from Datadog's own OpenAPI spec (`datadog-api-client-python`,
+`.generator/schemas/v1/openapi.yaml`), which declares the `AuthZ` scope per operation. Each endpoint's
+`security` list is a set of *alternatives*, so one scope per call is enough.
+
+| Call | Endpoint | Scope |
+|---|---|---|
+| adapter pulls a window | `GET /api/v1/query` | `timeseries_query` |
+| poller / apply.py list | `GET /api/v1/monitor` | `monitors_read` |
+| apply.py create/update/delete monitor | `POST`/`PUT`/`DELETE /api/v1/monitor` | `monitors_write` (`monitors_draft_write` is the alternative, and is not enough for live monitors) |
+| apply.py webhook | `POST /api/v1/integration/webhooks/configuration/webhooks` | `create_webhooks` |
+| apply.py list dashboards | `GET /api/v1/dashboard` | `dashboards_read` |
+| apply.py create/update dashboard | `POST`/`PUT /api/v1/dashboard` | `dashboards_write` |
+
+Notes:
+- `PUT .../webhooks/{name}` declares **no** `AuthZ` scope and inherits the spec's global
+  `apiKeyAuth + appKeyAuth`. `create_webhooks` is the scope Datadog maps webhook management to, so it
+  is the one to grant; if a token is refused when *updating* an existing webhook, delete the webhook
+  and let `make monitors` recreate it.
+- Querying does **not** need `metrics_read` — that scope is for custom-metric *metadata*, not data.
+- A Service Access Token authenticates either as `Authorization: Bearer <token>` or in the
+  `dd-application-key` header. The repo uses the latter, which is what `datadog-api-client` already
+  sends as `appKeyAuth`, so switching from an application key needed no client change.
+- The Agent still needs a real **API key**: a token does not replace it for metric intake.
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of

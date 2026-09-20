@@ -53,7 +53,7 @@ def health() -> dict:
     return {
         "status": "ok",
         "site": settings.dd_site,
-        "datadog_configured": bool(settings.dd_api_key and settings.dd_app_key),
+        "datadog_configured": bool(settings.dd_api_key and settings.dd_access_token),
         "variants": list(settings.prism_variants),
     }
 

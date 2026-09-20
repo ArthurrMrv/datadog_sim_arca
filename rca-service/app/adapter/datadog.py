@@ -98,8 +98,8 @@ class DatadogBackend(MetricsBackend):
     """Reads metrics through the Datadog timeseries query API."""
 
     def __init__(self, settings: Settings, queries: QueryConfig | None = None) -> None:
-        if not (settings.dd_api_key and settings.dd_app_key):
-            raise RuntimeError("DD_API_KEY and DD_APP_KEY are required to query Datadog")
+        if not (settings.dd_api_key and settings.dd_access_token):
+            raise RuntimeError("DD_API_KEY and DD_ACCESS_TOKEN are required to query Datadog")
         self._settings = settings
         self._queries = queries or load_queries()
 
@@ -160,7 +160,7 @@ class DatadogBackend(MetricsBackend):
 
         configuration = Configuration()
         configuration.api_key["apiKeyAuth"] = self._settings.dd_api_key
-        configuration.api_key["appKeyAuth"] = self._settings.dd_app_key
+        configuration.api_key["appKeyAuth"] = self._settings.dd_access_token
         configuration.server_variables["site"] = self._settings.dd_site
         return MetricsApi(ApiClient(configuration))
 

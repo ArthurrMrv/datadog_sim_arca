@@ -40,7 +40,7 @@ class WindowConfig:
 class Settings:
     dd_site: str = "datadoghq.eu"
     dd_api_key: str = ""
-    dd_app_key: str = ""
+    dd_access_token: str = ""
     webhook_secret: str = ""
     host: str = "0.0.0.0"
     port: int = 8000
@@ -85,7 +85,9 @@ def load_settings(env_file: Path | None = None) -> Settings:
     return Settings(
         dd_site=os.getenv("DD_SITE", "datadoghq.eu"),
         dd_api_key=os.getenv("DD_API_KEY", ""),
-        dd_app_key=os.getenv("DD_APP_KEY", ""),
+        # A Service Access Token, scoped to exactly what this pipeline calls (see README). It is
+        # sent in the dd-application-key header, so an old-style application key still works.
+        dd_access_token=os.getenv("DD_ACCESS_TOKEN") or os.getenv("DD_APP_KEY", ""),
         webhook_secret=os.getenv("WEBHOOK_SECRET", ""),
         host=os.getenv("RCA_HOST", "0.0.0.0"),
         port=int(os.getenv("RCA_PORT", "8000")),

@@ -74,7 +74,7 @@ class Poller:
 
         configuration = Configuration()
         configuration.api_key["apiKeyAuth"] = self._settings.dd_api_key
-        configuration.api_key["appKeyAuth"] = self._settings.dd_app_key
+        configuration.api_key["appKeyAuth"] = self._settings.dd_access_token
         configuration.server_variables["site"] = self._settings.dd_site
         return list(
             MonitorsApi(ApiClient(configuration)).list_monitors(
