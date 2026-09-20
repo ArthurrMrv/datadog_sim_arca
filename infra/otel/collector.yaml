@@ -43,14 +43,14 @@ processors:
 
 exporters:
   # Single egress point: the Agent already holds the API key.
+  #
+  # The Service is named after the Helm release, which up.sh installs as `datadog` -- so
+  # `datadog.datadog.svc.cluster.local`, NOT `datadog-agent...`. Verified 2026-09-20 against a running
+  # cluster (docs/verified.md): that Service exposes 4317/TCP and 4318/TCP, and the Agent reports
+  # `OTLP: Status: Enabled, Collector status: Running`. A name that does not resolve fails as
+  # `name resolver error: produced zero addresses` and no trace metric ever reaches Datadog.
   otlp/datadog-agent:
-    endpoint: datadog-agent.datadog.svc.cluster.local:4317
-    tls:
-      insecure: true
-  # Optional (D7): individual traces for debugging. Harmless to leave configured; the pipeline never
-  # reads it.
-  otlp/jaeger:
-    endpoint: jaeger.observability.svc.cluster.local:4317
+    endpoint: datadog.datadog.svc.cluster.local:4317
     tls:
       insecure: true
 
@@ -60,8 +60,12 @@ service:
       level: basic
   pipelines:
     traces:
+      # spanmetrics only. Jaeger (D7) is off by default, so exporting to it would mean an exporter with
+      # no target: its queue fills, the errors propagate back to the receiver, and the instrumented
+      # services start retrying their OTLP exports. To enable D7, add an `otlp/jaeger` exporter here
+      # AND deploy it with DEPLOY_JAEGER=1 -- one without the other breaks the trace path.
       receivers: [otlp]
-      exporters: [spanmetrics, otlp/jaeger]
+      exporters: [spanmetrics]
     metrics:
       receivers: [spanmetrics]
       processors: [batch]
