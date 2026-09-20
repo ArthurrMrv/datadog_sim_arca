@@ -117,7 +117,8 @@ phase is how the next one gets tested (D18).
 
 1. Install Docker, `kind`, `kubectl`, `helm`, Python >= 3.11, `uv` or `pip`, `cloudflared`, optionally
    `terraform`.
-2. Activate the Datadog student offer. Create an **API key** and an **Application key**. Note your
+2. Activate the Datadog student offer. Create an **API key** (for the Agent) and a scoped **Service
+   Access Token** (for the API; exact scopes in the README). Note your
    **Datadog site**; every API URL and the Agent config depend on it. **VERIFY** in the account URL.
 3. Check *Plan & Usage* for what is included: hosts, custom metric allowance, whether APM and Logs are
    available. **VERIFY**. This decides how strictly cardinality must be controlled (Phase 3).

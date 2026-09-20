@@ -34,11 +34,11 @@ def _client():
     from datadog_api_client import ApiClient, Configuration
 
     settings = load_settings()
-    if not (settings.dd_api_key and settings.dd_app_key):
-        raise SystemExit("DD_API_KEY and DD_APP_KEY are required (see .env.example)")
+    if not (settings.dd_api_key and settings.dd_access_token):
+        raise SystemExit("DD_API_KEY and DD_ACCESS_TOKEN are required (see .env.example)")
     configuration = Configuration()
     configuration.api_key["apiKeyAuth"] = settings.dd_api_key
-    configuration.api_key["appKeyAuth"] = settings.dd_app_key
+    configuration.api_key["appKeyAuth"] = settings.dd_access_token
     configuration.server_variables["site"] = settings.dd_site
     return ApiClient(configuration), settings
 

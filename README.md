@@ -39,8 +39,27 @@ curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cl
 git clone -b claude/rca-sim-implementation-t214kt https://github.com/ArthurrMrv/datadog_sim_arca.git && cd datadog_sim_arca
 ```
 
-**2. Datadog keys.** Create an API key and an Application key in *Organization Settings*; `DD_SITE` is
-the host part of your Datadog URL (`datadoghq.eu`, `datadoghq.com`, `us5.datadoghq.com`, ...).
+**2a. API key** — *Organization Settings -> API Keys -> New Key*. This is what the in-cluster Agent
+uses to ship metrics; a token cannot replace it.
+
+**2b. Service Access Token** — *Organization Settings -> Service Accounts*, create (or pick) a service
+account, then *Access Tokens -> + New Token*. Set expiry to **Never** for a long campaign, and select
+**exactly these six scopes** — nothing else is needed, and nothing else should be granted:
+
+| Scope | Why this pipeline needs it |
+|---|---|
+| `timeseries_query` | the adapter pulls the incident window (`GET /api/v1/query`) |
+| `monitors_read` | the poller reads monitor state; `make monitors` checks what already exists |
+| `monitors_write` | `make monitors` creates and updates the five monitors |
+| `create_webhooks` | `make monitors` registers the webhook that calls rca-service |
+| `dashboards_read` | `make monitors` checks whether the dashboard exists before creating it |
+| `dashboards_write` | `make monitors` creates and updates the dashboard |
+
+Scope names are case-sensitive. To only *run* the loop against monitors that already exist
+(`make rca`, `make analyze`, `make status`), `timeseries_query` and `monitors_read` are sufficient.
+
+**2c. Fill in `.env`** — `DD_SITE` is the host part of your Datadog URL (`datadoghq.eu`,
+`datadoghq.com`, `us5.datadoghq.com`, ...).
 ```bash
 cp .env.example .env && ${EDITOR:-nano} .env
 ```
