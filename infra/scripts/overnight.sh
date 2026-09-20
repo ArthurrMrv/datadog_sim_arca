@@ -7,6 +7,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+# One run at a time. Two concurrent campaigns inject overlapping faults, so every ground-truth
+# record names one service while two are broken -- which silently invalidates the whole experiment,
+# and the scores look perfectly plausible afterwards. Cheap to prevent, impossible to detect later.
+LOCK=${LOCK:-/tmp/rca-sim-overnight.lock}
+exec 9>"$LOCK"
+flock -n 9 || {
+  echo "ABORT: another overnight run holds $LOCK. Kill it first, or unset the lock if it is stale." >&2
+  exit 1
+}
+
 SETTLE_SECONDS=${SETTLE_SECONDS:-3600}
 MONITOR_SETTLE_SECONDS=${MONITOR_SETTLE_SECONDS:-300}
 CONFIG=${CONFIG:-experiments/configs/base.yaml}
