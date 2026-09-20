@@ -2,8 +2,7 @@
 
 PRISM returns an order and a witness metric but no magnitudes, so the numbers here come from the
 same frame the ranking was computed from: baseline mean and standard deviation against the
-post-window extreme, per metric. That is also all the optional LLM summary is given — it explains
-PRISM's ranking rather than inventing a diagnosis of its own.
+post-window extreme, per metric.
 """
 
 from __future__ import annotations
@@ -162,58 +161,4 @@ def to_markdown(report: dict) -> str:
                        ("query_errors", "query errors")):
         if source.get(key):
             lines.append(f"- {label}: {source[key]}")
-    if report.get("summary"):
-        lines += ["", "## Summary", "", report["summary"]]
     return "\n".join(lines) + "\n"
-
-
-def summarize(report: dict, settings: Settings) -> str | None:
-    """Optional one-paragraph explanation of the ranking, from the ranking and deltas only.
-
-    Returns None whenever it cannot be produced — the report is complete without it.
-    """
-    if not settings.anthropic_api_key:
-        return None
-    evidence = {
-        "top_suspects": [
-            {k: s[k] for k in ("position", "service", "witness_metric", "witness_class")}
-            | {"metrics": s["metrics"][:4]}
-            for s in report["top_suspects"]
-        ],
-        "alert": report.get("alert", {}),
-    }
-    try:
-        import httpx
-
-        response = httpx.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": "2023-06-01",
-            },
-            json={
-                "model": "claude-sonnet-5",
-                "max_tokens": 400,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": (
-                            "You are given the output of a root cause analysis method "
-                            "(PRISM) on a microservice incident: a ranking of services, the "
-                            "metric that witnessed each one, and baseline-vs-incident "
-                            "deviations. Explain in at most 120 words why the top-ranked "
-                            "service is the likely origin and what the other suspects are "
-                            "showing. Use only the evidence given; do not invent metrics or "
-                            "causes.\n\n" + repr(evidence)
-                        ),
-                    }
-                ],
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
-        return "".join(
-            block.get("text", "") for block in response.json().get("content", [])
-        ).strip() or None
-    except Exception:
-        return None

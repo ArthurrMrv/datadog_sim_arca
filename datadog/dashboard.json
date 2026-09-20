@@ -29,7 +29,7 @@
         "title": "error rate by service (spanmetrics)",
         "requests": [
           {
-            "q": "sum:traces.span.metrics.calls.count{env:rca-sim,status.code:STATUS_CODE_ERROR} by {service}.as_rate()",
+            "q": "sum:traces.span.metrics.calls{env:rca-sim,status.code:error} by {service}.as_rate()",
             "display_type": "line"
           }
         ]
@@ -41,7 +41,7 @@
         "title": "request rate by service (spanmetrics)",
         "requests": [
           {
-            "q": "sum:traces.span.metrics.calls.count{env:rca-sim,span.kind:server} by {service}.as_rate()",
+            "q": "sum:traces.span.metrics.calls{env:rca-sim,span.kind:server} by {service}.as_rate()",
             "display_type": "line"
           }
         ]

@@ -35,12 +35,12 @@ families:
     rollup: avg
 
   - name: error_rate
-    query: "sum:traces.span.metrics.calls.count{env:rca-sim,status.code:STATUS_CODE_ERROR} by {service}.as_rate()"
+    query: "sum:traces.span.metrics.calls{env:rca-sim,status.code:error} by {service}.as_rate()"
     group_by: service
     rollup: sum
 
   - name: workload
-    query: "sum:traces.span.metrics.calls.count{env:rca-sim,span.kind:server} by {service}.as_rate()"
+    query: "sum:traces.span.metrics.calls{env:rca-sim,span.kind:server} by {service}.as_rate()"
     group_by: service
     rollup: sum
 

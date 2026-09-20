@@ -59,6 +59,12 @@ clusterAgent:
 agents:
   containers:
     agent:
+      env:
+        # An OTLP histogram becomes a Datadog *distribution* only in this mode, and `p95:` exists only
+        # on a distribution. In counters mode the duration metric arrives as .count/.sum/.bucket and
+        # every latency query and the latency monitor return nothing.
+        - name: DD_OTLP_CONFIG_METRICS_HISTOGRAMS_MODE
+          value: distributions
       resources:
         requests:
           cpu: 100m

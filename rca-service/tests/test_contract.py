@@ -6,13 +6,18 @@ as a ranking that quietly ignores half the metrics, not as an error.
 
 from __future__ import annotations
 
+import pathlib
+
 import pandas as pd
 import pytest
 from app import contract
+from app import prism as prism_module
 from app.adapter.base import load_queries
 from app.contract import ContractError, property_class, validate
-from app.runner import _prism_module, rank
+from app.runner import rank
 from conftest import ANOMALY_TIME
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def test_property_classes_match_prism():
@@ -21,10 +26,8 @@ def test_property_classes_match_prism():
     A drift here is invisible: PRISM would silently leave every unrecognised family out of the
     ranking.
     """
-    prism = _prism_module()
-
-    assert contract.INTERNAL_PROPERTIES <= prism.INTERNAL_PROPERTIES
-    assert contract.EXTERNAL_PROPERTIES <= prism.EXTERNAL_PROPERTIES
+    assert contract.INTERNAL_PROPERTIES <= prism_module.INTERNAL_PROPERTIES
+    assert contract.EXTERNAL_PROPERTIES <= prism_module.EXTERNAL_PROPERTIES
     assert all(property_class(p) == "internal" for p in contract.INTERNAL_PROPERTIES)
     assert all(property_class(p) == "external" for p in contract.EXTERNAL_PROPERTIES)
 
@@ -98,3 +101,28 @@ def test_service_names_never_contain_underscores(frame):
     for column in frame.columns:
         if column != "time":
             assert "_" not in column.partition("_")[0]
+
+
+def test_monitors_and_adapter_read_the_same_metrics():
+    """The detector and PRISM must see one telemetry set.
+
+    If a monitor alerts on a metric the adapter never pulls, the incident is real but the frame
+    that explains it has no trace of it: the ranking is then computed from metrics nobody alerted
+    on. This caught `traces.span.metrics.calls.count`, which does not exist, before a campaign did.
+    """
+    import re
+
+    import yaml
+
+    definitions = yaml.safe_load(
+        (ROOT / "datadog" / "monitors" / "monitors.yaml").read_text()
+    )
+    metric = re.compile(r"[a-z][a-z0-9_.]*\.[a-z][a-z0-9_.]*\{")
+    pulled = {
+        m.group(0)[:-1] for family in load_queries().families for m in metric.finditer(family.query)
+    }
+    alerted = {
+        m.group(0)[:-1] for d in definitions["monitors"] for m in metric.finditer(d["query"])
+    }
+    # The saturation monitors also read the *limit* of a metric the adapter pulls the usage of.
+    assert alerted - pulled <= {"container.cpu.limit", "container.memory.limit"}, alerted - pulled

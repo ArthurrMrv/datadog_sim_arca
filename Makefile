@@ -4,7 +4,6 @@ SHELL := /bin/bash
 
 VENV       ?= .venv
 PY         := $(VENV)/bin/python
-PRISM_REPO ?= ../automated_root_cause_analysis
 FAULT      ?= cpu
 SERVICE    ?= cartservice
 DURATION   ?= 300
@@ -16,15 +15,11 @@ MODE       ?= webhook
 help: ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
 
-venv: $(VENV)/.installed ## create the venv and install rca-service + PRISM (editable)
+venv: $(VENV)/.installed ## create the venv and install rca-service (PRISM is in app/prism/)
 $(VENV)/.installed: rca-service/pyproject.toml
 	python3 -m venv $(VENV)
 	$(PY) -m pip install -q --upgrade pip
 	$(PY) -m pip install -q -e "rca-service[dev]"
-	@# PRISM stays a dependency and is never vendored here (D14). Editable, so research changes land
-	@# in the live pipeline immediately.
-	@if [ -d "$(PRISM_REPO)" ]; then $(PY) -m pip install -q -e "$(PRISM_REPO)"; \
-	 else echo "WARNING: $(PRISM_REPO) not found; set PRISM_REPO=<path> (see Phase 0)"; fi
 	@touch $@
 
 test: venv ## unit tests: contract, windows, adapter, scoring. No cluster, no Datadog account
