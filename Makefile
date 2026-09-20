@@ -10,7 +10,7 @@ DURATION   ?= 300
 CONFIG     ?= experiments/configs/base.yaml
 MODE       ?= webhook
 
-.PHONY: help venv test lint up down status monitors calibrate rca tunnel inject analyze replay eval sweep clean
+.PHONY: help venv test lint up down status clusters prepull pause resume monitors calibrate rca tunnel inject analyze replay eval sweep clean
 
 help: ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
@@ -33,6 +33,24 @@ up: ## create the cluster and deploy app, Agent, Collector, Chaos Mesh (Phases 1
 
 down: ## delete the cluster (results/ survives)
 	infra/scripts/down.sh
+
+clusters: ## list kind clusters: any besides rca-sim is a container holding RAM for nothing
+	@kind get clusters
+
+pause: ## stop the cluster without deleting it (keeps images and deployments; resume is seconds)
+	docker stop rca-sim-control-plane
+
+resume: ## restart a paused cluster, then re-check that metrics are flowing
+	docker start rca-sim-control-plane
+	@sleep 20 && infra/scripts/status.sh
+
+prepull: ## pull the app images on the host and load them into the node
+	@# Two problems at once: the node needs no registry DNS for these, and a recreated cluster reuses
+	@# the host's image cache instead of re-downloading ~1.5 GB.
+	@kubectl kustomize infra/online-boutique | grep -oE 'image: .+' | cut -d' ' -f2 | sort -u \
+	  | while read -r img; do \
+	      echo "== $$img"; docker pull -q "$$img" && kind load docker-image --name rca-sim "$$img"; \
+	    done
 
 status: venv ## pods, Agent checks, Collector, freshness of the metrics the adapter reads
 	infra/scripts/status.sh

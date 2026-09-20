@@ -17,6 +17,16 @@ if ! kind get clusters 2>/dev/null | grep -qx rca-sim; then
   kind create cluster --config infra/kind-config.yaml --wait 120s
 fi
 
+# kind copies the host's resolver into the node. In a devcontainer, a Codespace or behind a corporate
+# resolver that address is often unreachable from the node's own network, and every image pull fails
+# with a DNS error that looks like a registry outage. Checked on every run, because a container
+# restart resets the file. `getent` is used because the node image ships no nslookup or dig.
+if ! docker exec rca-sim-control-plane getent hosts registry-1.docker.io >/dev/null 2>&1; then
+  echo "== node cannot resolve registries, pointing it at public DNS"
+  docker exec rca-sim-control-plane \
+    sh -c 'printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\n" > /etc/resolv.conf'
+fi
+
 echo "== Online Boutique (Phase 1)"
 kubectl apply -k infra/online-boutique
 
