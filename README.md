@@ -74,7 +74,9 @@ make venv
 make test
 ```
 
-**5. Bring up the cluster** (~10 min: kind + Online Boutique + Agent + Collector + Chaos Mesh).
+**5. Bring up the cluster** (~10 min: kind + Online Boutique + Agent + Collector + Chaos Mesh). Use
+`PREPULL=1 make up` where the node cannot reach a registry — common in Codespaces and devcontainers —
+or to reuse the host's image cache on a re-created cluster.
 ```bash
 make up
 ```

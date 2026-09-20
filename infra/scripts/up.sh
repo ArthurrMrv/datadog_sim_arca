@@ -3,10 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-# Pinned versions: reproducibility of every experiment depends on them.
-DATADOG_CHART_VERSION=${DATADOG_CHART_VERSION:-3.70.4}
-CHAOS_MESH_VERSION=${CHAOS_MESH_VERSION:-2.6.3}
-DEPLOY_JAEGER=${DEPLOY_JAEGER:-0}
+. infra/versions.env
 
 [[ -f .env ]] && set -a && . ./.env && set +a
 : "${DD_API_KEY:?set DD_API_KEY in .env}"
@@ -26,6 +23,10 @@ if ! docker exec rca-sim-control-plane getent hosts registry-1.docker.io >/dev/n
   docker exec rca-sim-control-plane \
     sh -c 'printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\n" > /etc/resolv.conf'
 fi
+
+# PREPULL=1 pulls every image on the host and loads it into the node first: needed where the node
+# cannot reach a registry at all, and a large time saver on any re-created cluster.
+[[ "${PREPULL:-0}" == "1" ]] && infra/scripts/prepull.sh
 
 echo "== Online Boutique (Phase 1)"
 kubectl apply -k infra/online-boutique
