@@ -33,10 +33,14 @@ helm upgrade --install datadog datadog/datadog \
   --set datadog.site="$DD_SITE"
 
 echo "== OTel Collector (Phase 3)"
-kubectl apply -f infra/otel/deployment.yaml
+# ConfigMap before Deployment: the other order starts a pod that cannot mount its config, so the
+# first thing `make status` shows is a CreateContainerConfigError that fixes itself.
+kubectl create namespace observability --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n observability create configmap otel-collector-config \
   --from-file=collector.yaml=infra/otel/collector.yaml \
   --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f infra/otel/deployment.yaml
+# Picks up an edited collector.yaml on a re-run; a no-op on a fresh install.
 kubectl -n observability rollout restart deployment/otel-collector
 [[ "$DEPLOY_JAEGER" == "1" ]] && kubectl apply -f infra/jaeger/jaeger.yaml
 
