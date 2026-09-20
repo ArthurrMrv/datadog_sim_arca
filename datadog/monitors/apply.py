@@ -46,17 +46,18 @@ def _client():
 def webhook_payload_template() -> str:
     """The JSON Datadog posts to rca-service.
 
-    VERIFY(docs/verified.md V7): these are Datadog webhook template variables; confirm the names
-    and the unit of the event date against the Webhooks integration docs before trusting a trigger
-    time. The service tolerates seconds or milliseconds, but a *wrong variable* would silently
-    shift every window.
+    Verified against the Webhooks integration docs (docs/verified.md): `$DATE` is when the event
+    happened, in **milliseconds**, which `app.alerts._seconds` converts. `$LAST_UPDATED_EPOCH` --
+    used here originally -- does not exist, so `event_ts` arrived as that literal string and the
+    trigger time silently became "whenever the service happened to receive the webhook", biasing
+    every time-to-detect measurement.
     """
     return json.dumps(
         {
             "monitor_id": "$ALERT_ID",
             "monitor_name": "$ALERT_TITLE",
             "transition": "$ALERT_TRANSITION",
-            "event_ts": "$LAST_UPDATED_EPOCH",
+            "event_ts": "$DATE",
             "scope": "$ALERT_SCOPE",
             "tags": "$TAGS",
             "event_url": "$LINK",

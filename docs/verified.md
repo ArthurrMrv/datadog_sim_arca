@@ -160,6 +160,36 @@ Collector still got `connection refused` on the ClusterIP: the Service resolved 
 published, but nothing outside the Agent's network namespace could connect.
 `DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT=0.0.0.0:4317` is now set explicitly on the Agent.
 
+## Webhook template variables — verified against the docs, 2026-09-20
+
+| Variable | Contents |
+|---|---|
+| `$ALERT_ID` | monitor id |
+| `$ALERT_TITLE` | alert title |
+| `$ALERT_TRANSITION` | one of `Recovered`, `Triggered`/`Re-Triggered`, `No Data`/`Re-No Data`, `Warn`/`Re-Warn`, `Renotify` |
+| `$ALERT_SCOPE` | comma-separated triggering tags |
+| `$DATE` | when the event happened, **epoch milliseconds** |
+| `$LAST_UPDATED` | when the event was last updated, epoch milliseconds |
+| `$TAGS`, `$LINK`, `$EVENT_MSG`, `$ID` | event tags, URL, text, id |
+
+`$LAST_UPDATED_EPOCH`, used in the original payload, **does not exist**. It would have arrived as that
+literal string, and `_seconds` would have fallen back to "now" — so the trigger time became whenever the
+service happened to receive the webhook, biasing every time-to-detect measurement in the study. The
+payload now sends `$DATE`. `is_trigger` also accepts `Re-Warn`, which the original set dropped.
+
+## Client model shapes — checked against the installed client, 2026-09-20
+
+Same class of defect as `Point`, checked before it could bite:
+
+| Access | Result |
+|---|---|
+| `MonitorState.groups` | a real `dict[str, MonitorStateGroup]`, so `dict(groups)` is safe |
+| `MonitorStateGroup.status` | a `MonitorOverallStates` model, **not** a string: `str(x) == "Alert"` is True, but `x == "Alert"` is False and `x in {"Alert"}` raises `TypeError: unhashable`. The poller's `str()` wrapping is load-bearing |
+| `MonitorStateGroup.last_triggered_ts`, `.name`, `.status` | exist under those names |
+| `MonitorOptions` | has `thresholds`, `require_full_window`, `notify_no_data`, `renotify_interval`, `evaluation_delay` |
+| `WebhooksIntegration` | has `name`, `url`, `payload`, `custom_headers`, `encode_as` |
+| `list_monitors` | accepts `monitor_tags`, `group_states`, `page`, `page_size` |
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of

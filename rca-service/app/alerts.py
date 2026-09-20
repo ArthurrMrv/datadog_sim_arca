@@ -27,7 +27,12 @@ class Alert:
     @property
     def is_trigger(self) -> bool:
         """Only a transition *into* alert starts an analysis; recoveries and re-notifies do not."""
-        return self.transition.strip().lower() in {"triggered", "alert", "re-triggered", "warn"}
+        # The documented $ALERT_TRANSITION values are Recovered, Triggered/Re-Triggered,
+        # No Data/Re-No Data, Warn/Re-Warn and Renotify. Everything that means "it just went bad"
+        # counts; Renotify is an existing incident and the deduper would drop it anyway.
+        return self.transition.strip().lower() in {
+            "triggered", "re-triggered", "warn", "re-warn", "alert",
+        }
 
     def as_dict(self) -> dict:
         return {k: v for k, v in asdict(self).items() if k != "raw"} | {"raw": self.raw}
