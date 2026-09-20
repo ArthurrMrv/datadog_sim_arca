@@ -40,10 +40,16 @@ families:
     group_by: service
     rollup: avg
 
+  # `span.kind` matches `workload` on purpose: without it this counts client *and* server error spans
+  # while workload counts only server ones, so the monitor's error ratio could exceed 1 and the two
+  # families would not be comparable.
   - name: error_rate
-    query: "sum:traces.span.metrics.calls{env:rca-sim,status.code:status_code_error} by {service}.as_rate()"
+    query: >-
+      sum:traces.span.metrics.calls{env:rca-sim,status.code:status_code_error,span.kind:span_kind_server}
+      by {service}.as_rate()
     group_by: service
     rollup: sum
+    absent_means_zero: true
 
   - name: workload
     query: "sum:traces.span.metrics.calls{env:rca-sim,span.kind:span_kind_server} by {service}.as_rate()"

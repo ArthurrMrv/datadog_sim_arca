@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from app.adapter.base import FetchResult, MetricsBackend, QueryConfig, QuerySpec, load_queries
-from app.adapter.naming import column, normalize_service
+from app.adapter.naming import column, normalize_service, service_of
 from app.config import Settings
 
 log = logging.getLogger(__name__)
@@ -65,6 +65,7 @@ def to_frame(
             continue
         columns[name] = align(item.points, times, step, cfg.ffill_limit_steps)
 
+    zeroed = _fill_absent_with_zero(columns, times, cfg)
     frame = pd.DataFrame({"time": times} | {k: columns[k] for k in sorted(columns)})
     frame.index = range(len(frame))
 
@@ -86,12 +87,36 @@ def to_frame(
         "dropped_too_sparse": sorted(too_sparse),
         "dropped_constant": sorted(constant),
         "duplicate_series": sorted(set(duplicates)),
+        "zero_filled": sorted(zeroed),
         "gaps": {c: round(float(frame[c].isna().mean()), 4)
                  for c in frame.columns if c != "time" and frame[c].isna().any()},
     }
     if too_sparse or constant:
         log.info("dropped %d sparse and %d constant columns", len(too_sparse), len(constant))
     return frame, meta
+
+
+def _fill_absent_with_zero(
+    columns: dict[str, pd.Series], times: np.ndarray, cfg: QueryConfig
+) -> list[str]:
+    """Add all-zero columns for `absent_means_zero` families the backend returned no series for.
+
+    Mutates `columns` and returns the names added. A column that stays zero throughout is then
+    dropped as constant, which is correct -- it carried no information. One that is zero in the
+    baseline and non-zero after the fault survives, and that is exactly the case PRISM's zero-scale
+    handling is built for.
+    """
+    services = {service_of(name) for name in columns}
+    added = []
+    for spec in cfg.families:
+        if not spec.absent_means_zero:
+            continue
+        for service in services:
+            name = column(service, spec.name)
+            if name not in columns:
+                columns[name] = pd.Series(0.0, index=times, dtype=float)
+                added.append(name)
+    return added
 
 
 class DatadogBackend(MetricsBackend):

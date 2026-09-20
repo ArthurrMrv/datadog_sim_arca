@@ -214,6 +214,19 @@ internal and external properties land on different components — exactly the di
 Also confirmed: **V2 closed** (the demo's tracing env vars work — spans arrive), `metric_type: count` on
 the calls metric, `is_percentiles_enabled: false` on it, and `host: rca-sim-control-plane-rca-sim`.
 
+## Container metric tags — read off the live cluster, 2026-09-20
+
+**V3b closed.** `container.cpu.usage` carries `kube_deployment` with exactly the 12 Online Boutique
+deployment names and `kube_namespace` including `shop`. `container.cpu.limit` is collected for all 12
+too, so the two saturation monitors have a real denominator; usage and limit are both `nanocore`, so
+the ratio is unitless and correct. Other useful tags present: `kube_qos`, `pod_name`,
+`kube_container_name`, `kube_cluster_name: rca-sim`.
+
+Note `container.cpu.usage` also carries a `service` tag, but its values are Kubernetes control-plane
+component names (`kube-apiserver`, `kube-proxy`, ...) — nothing to do with OTel's `service.name`. The
+container families group by `kube_deployment` and the span families by `service`; they must not be
+mixed up.
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of
