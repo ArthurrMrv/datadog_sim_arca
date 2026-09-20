@@ -78,7 +78,11 @@ class Settings:
 
 def load_settings(env_file: Path | None = None) -> Settings:
     """Read settings from the environment, loading `.env` first if present."""
-    load_dotenv(env_file or ROOT / ".env", override=False)
+    # `.env` wins over anything already exported, which is what `up.sh` does too
+    # (`set -a && . ./.env`). With the conventional override=False, a stale `DD_SITE` left in the
+    # shell by an earlier `source .env` silently beat the file the README tells you to edit: the
+    # Agent got the corrected site and every API read got 401, with nothing pointing at why.
+    load_dotenv(env_file or ROOT / ".env", override=True)
     variants = tuple(
         v.strip() for v in os.getenv("RCA_PRISM_VARIANTS", "prism,prismv2").split(",") if v.strip()
     )
