@@ -12,17 +12,29 @@ receivers:
 
 connectors:
   spanmetrics:
-    # Cardinality is the one real risk of this design: every dimension multiplies the custom metric
-    # series count. service.name is what the adapter groups by; span.kind separates server from client
-    # spans; status.code is the error signal. Nothing else (no http.route) until the allowance is known.
-    dimensions:
-      - name: span.kind
-      - name: status.code
+    # Verified against the connector README (docs/verified.md V5): every metric already carries
+    # service.name, span.name, span.kind, status.code and collector.instance.id, so those are NOT
+    # declared here -- they are defaults.
+    #
+    # Cardinality is the one real risk of this design, and `span.name` is where it bites: one series
+    # per operation per service per status, times every histogram bucket. The adapter groups by
+    # service only, so the operation dimension buys nothing and is dropped. collector.instance.id
+    # exists for multi-collector deployments; there is one Collector here.
+    exclude_dimensions: [span.name, collector.instance.id]
     histogram:
+      # Pinned, because the default is changing: the connector still emits ms, but a feature gate
+      # switches it to s to follow OpenTelemetry semantic conventions. An unpinned unit would silently
+      # turn a 0.5s monitor threshold into 0.5ms on a Collector upgrade, and it would fire forever.
+      unit: s
       explicit:
         buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2500ms]
+    # Datadog counts are deltas. Cumulative would make the Agent diff the series itself and emit a
+    # spike on every Collector restart, which reads exactly like an incident.
+    aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
     # Match the Agent's 5s collection so trace metrics line up with container metrics on one grid (D8).
     metrics_flush_interval: 5s
+    # This is also the connector's default, set explicitly so the metric names the adapter queries
+    # cannot move under a version bump.
     namespace: traces.span.metrics
 
 processors:

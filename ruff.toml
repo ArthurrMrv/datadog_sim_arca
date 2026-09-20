@@ -3,6 +3,10 @@
 line-length = 100
 target-version = "py311"
 
+# app/prism/ is a verbatim copy of the published PRISM implementation. Reformatting it would make it
+# undiffable against its source, which is the one property that keeps the vendored copy trustworthy.
+extend-exclude = ["rca-service/app/prism"]
+
 [lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM", "PERF", "RUF"]
 

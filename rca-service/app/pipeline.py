@@ -14,7 +14,7 @@ from app.adapter.base import MetricsBackend
 from app.alerts import Alert
 from app.config import Settings
 from app.contract import validate
-from app.report import build, summarize, to_markdown
+from app.report import build, to_markdown
 from app.runner import rank_all
 from app.store import Incident, Store
 from app.windows import Windows, from_anomaly_time, from_trigger
@@ -63,9 +63,6 @@ class Pipeline:
                 incident.incident_id, fetched.frame, windows, rankings, contract,
                 fetched.meta, self.settings, alert,
             )
-            summary = summarize(report, self.settings)
-            if summary:
-                report["summary"] = summary
             self.store.save_report(incident, report, to_markdown(report))
             log.info(
                 "incident %s: top suspects %s",

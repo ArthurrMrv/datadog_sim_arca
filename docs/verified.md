@@ -1,59 +1,89 @@
 # Verified facts
 
-Every **VERIFY** item from `IMPLEMENTATION_PLAN.md` ends up here, with how it was checked and when.
-Anything still `OPEN` needs a live cluster or a Datadog account and is marked in the code with
-`# VERIFY(docs/verified.md)`.
+Every **VERIFY** item from `IMPLEMENTATION_PLAN.md` ends up here with how it was checked and when, so
+the same guess is not made twice. Anything still `OPEN` needs a running cluster and is marked
+`VERIFY(docs/verified.md)` in the file where it matters.
 
-## Verified from source
+## PRISM input format (Phase 0, Section 6) — read from source, 2026-09-20
 
-### PRISM input format (Phase 0, Section 6) — verified 2026-09-20
-Read from `automated_root_cause_analysis` @ `RCAEval/e2e/prism.py` and `RCAEval/io/time_series.py`.
+From `ArthurrMrv/automated_root_cause_analysis`: `RCAEval/e2e/prism.py` and
+`RCAEval/io/time_series.py`, both now vendored verbatim in `rca-service/app/prism/`.
 
 | Fact | Evidence |
 |---|---|
-| Entry point is `prism(data, inject_time=..., dataset=...)`, returning `{"node_names", "ranks", "diagnostics"}` | `prism()` signature and return |
-| `prismv2` is the same module under different names (`prismv2 = prism` at the end of `prism.py`); RCAEval registers both | end of `prism.py`, `RCAEval/e2e/__init__.py` |
-| `ranks` are strings `"{component}_{witness property}"`, best first. **No scores are returned** | `_rank_components`, `prism()` return |
-| Time column is literally `"time"` and is compared to `inject_time` with `<`, so both are plain numbers | `is_normal = (data["time"] < inject_time)` |
+| Entry point `prism(data, inject_time=..., dataset=...)` -> `{"node_names", "ranks", "diagnostics"}` | `prism()` signature and return |
+| `prismv2` is the same function under another name; both are exported | end of `prism.py` |
+| `ranks` are `"{component}_{witness property}"`, best first. **No scores are returned** | `_rank_components`, `prism()` return |
+| Time column is literally `"time"`, compared with `<`, so both sides are plain numbers | `is_normal = (data["time"] < inject_time)` |
 | Unit is UTC unix seconds | `main.py:325` reads `inject_time.txt` as `int` and compares it with the dataset's `time` column |
-| Component = text before the **first** underscore; property = the rest | `_split_property` uses `str.partition("_")` |
-| Property class from the **first** token of the property (split on `_`/`-`, lowercased) | `_property_class` |
+| Component = text before the **first** underscore | `_split_property` uses `str.partition("_")` |
+| Property class from the **first** token of the property, split on `_`/`-` | `_property_class` |
 | internal = cpu, mem, memory, disk, diskio, socket, sockets | `INTERNAL_PROPERTIES` |
 | external = latency, lat, latency-90, error, errors, duration, rt, workload | `EXTERNAL_PROPERTIES` |
-| Unclassified properties are excluded from scoring and only appended after the ranked components | `prism()`, `extra` |
+| Unclassified properties are excluded from scoring, appended after the ranked components | `prism()`, `extra` |
 | `dataset=None` makes `preprocess` a **no-op** — `time` is not even dropped | `preprocess()` first branch |
-| With `dataset` set, `preprocess` drops constant columns, drops `time`, and divides every `*_mem` column by 1e6 | `preprocess`, `convert_mem_mb` |
+| With `dataset` set: constant columns dropped, `time` dropped, every `*_mem` column divided by 1e6 | `preprocess`, `convert_mem_mb` |
 | Both windows must be non-empty over commonly observed columns, else `ValueError` | `prism()` guard |
 | A single NaN does not poison a pooled score | `_POOL_FUNCS` are the `nan*` variants |
-| Defaults are `scorer="zscore"`, `pooling="max"`, `combine="additive"` | `prism()` signature |
+| Defaults are `scorer="zscore"`, `pooling="max"`, `combine="additive"` (Table 5) | `prism()` signature |
 
-Consequences, applied in `app/adapter/queries.yaml`:
-- families are named `cpu`, `mem`, `latency_p95`, `error_rate`, `workload` so their first token classifies;
-- `restarts` is kept for the report but PRISM will list it as unclassified (there is no matching class);
-- memory is reported in bytes, since `preprocess` does the MB conversion;
-- service names are normalized with `-`, never `_` (`app/adapter/naming.py`).
+Applied in `app/adapter/queries.yaml`: families named so their first token classifies; `restarts` kept
+for the report only (no matching class); memory reported in bytes; service names use `-`, never `_`.
 
-### PRISM packaging (Phase 0) — verified 2026-09-20
-`automated_root_cause_analysis/setup.py` declares `RCAEval` with `install_requires=[]` and the real
-dependency list under the `default` extra. `pip install -e ../automated_root_cause_analysis` therefore
-installs the package but **no dependencies**; `rca-service` declares `pandas`/`numpy` itself.
-`RCAEval/e2e/__init__.py` imports every RCA method the fork ships. It guards those imports only on
-Python 3.10, 3.12 and 3.14 (`is_py310() or is_py312() or is_py314()`); on **3.11 it takes the unguarded
-branch**, so `import RCAEval.e2e.prism` pulls in matplotlib, torch and causal-learn. `prism.py` itself
-needs only numpy, pandas and `RCAEval.io.time_series`. `app/runner.py` therefore tries, in order: a
-top-level `prism` package (the clean entry point Phase 0 asks for, once that repo has it),
-`RCAEval.e2e.prism`, then the module file loaded directly. Verified working on Python 3.11 with only
-`rca-service`'s own dependencies installed.
+## PRISM packaging — decided 2026-09-20
 
-## OPEN — needs the live system
+`RCAEval/e2e/__init__.py` imports every RCA method the fork ships and guards those imports only on
+Python 3.10, 3.12 and 3.14 (`is_py310() or is_py312() or is_py314()`). **On 3.11 it takes the unguarded
+branch**, so `import RCAEval.e2e.prism` pulls in matplotlib, torch and causal-learn. PRISM itself needs
+numpy, pandas and `RCAEval.io.time_series`.
 
-| # | Item | Where it is used |
+Resolved by vendoring both files into `rca-service/app/prism/` (D14, amended). The copy is proven
+faithful by `tests/test_prism.py::test_upstream_demo_passes`, which runs upstream's own `_demo()`:
+every claim of the paper under its stated condition, each gap resolution, and all 120 documented
+configurations of scorer x pooling x combiner x time aggregation.
+
+## Datadog — checked against the account and the API, 2026-09-20
+
+Checked through the Datadog MCP server against the org this session is connected to.
+
+| Item | Result |
+|---|---|
+| Org state | Empty: no hosts, and the only metrics present are Datadog's own `datadog.*` usage metrics. Nothing has ever reported, so metric *names* were checked against Datadog's catalog and *values* remain unverified until `make up` runs. |
+| `container.cpu.usage` | Exists. gauge, unit **nanocore**, `container` integration |
+| `container.memory.usage` | Exists. gauge, unit **byte** — confirms reporting memory in bytes and letting `preprocess` do the MB conversion |
+| `container.cpu.limit` | Exists. gauge, nanocore — the denominator of the CPU saturation monitor |
+| `container.memory.limit` | Exists. gauge, byte |
+| `kubernetes.containers.restarts` | Exists. gauge, `kubernetes` integration |
+| All five monitor definitions | `validate_monitor_definition` returns `is_valid: true` for latency, error ratio, restarts, CPU saturation and memory saturation, including the multi-alert `by {service}` grouping, the `a/b` ratio queries and the `change(max(last_5m),last_5m)` restart query |
+
+## spanmetrics — checked against the connector README, 2026-09-20
+
+| Fact | Consequence |
+|---|---|
+| Metric names are `traces.span.metrics.calls` and `traces.span.metrics.duration` | `namespace` is set explicitly in `collector.yaml` to that same default, so a version bump cannot move the names the adapter queries |
+| Every metric already carries `service.name`, `span.name`, `span.kind`, `status.code`, `collector.instance.id` | Those are **not** declared as `dimensions` (they are defaults). `span.name` and `collector.instance.id` are `exclude_dimensions`: `span.name` is one series per operation per service per status per bucket, which is the cardinality risk the plan flagged, and it buys nothing since the adapter groups by service |
+| `status.code` values are `Unset` / `Ok` / `Error` | The error query filters `status.code:error`, not `STATUS_CODE_ERROR` (which was a guess and matches nothing) |
+| Duration unit is `ms` today, moving to `s` behind a feature gate | `histogram.unit: s` is pinned. Unpinned, a Collector upgrade would turn the 0.5s latency threshold into 0.5ms and the monitor would fire permanently |
+| An OTLP Sum maps to one Datadog COUNT of the same name; only multi-mappings get suffixes | The calls queries use `traces.span.metrics.calls`, not `...calls.count` |
+| An OTLP Histogram becomes a Datadog **distribution** in the Agent's `distributions` mode, which is what `p95:` needs | `DD_OTLP_CONFIG_METRICS_HISTOGRAMS_MODE=distributions` is set explicitly on the Agent. In counters mode the duration metric arrives as `.count`/`.sum`/`.bucket` and every latency query returns nothing |
+| Datadog counts are deltas | `aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA` on the connector, so the Agent does not diff cumulative series and emit a spike on every Collector restart |
+
+`tests/test_contract.py::test_monitors_and_adapter_read_the_same_metrics` pins the result: a metric a
+monitor alerts on must be one the adapter pulls, or the incident is explained from telemetry nobody
+alerted on.
+
+## OPEN — needs the running cluster
+
+`make status` prints the age of the newest point per family; a family reading "no data" is how each of
+these shows up.
+
+| # | Item | Where |
 |---|---|---|
-| V1 | Datadog site and whether APM/Logs are on the student plan; custom metric allowance | `.env`, Phase 3 cardinality budget |
-| V2 | Online Boutique tracing env vars in the pinned release (`ENABLE_TRACING`, `COLLECTOR_SERVICE_ADDR`) and which services are actually instrumented | `infra/online-boutique/` |
-| V3 | Container metric names and that `kube_deployment` is present | `app/adapter/queries.yaml` |
-| V4 | Helm keys that really apply 5s collection for the chart version, confirmed in the Metrics Explorer | `infra/datadog/values.yaml` |
-| V5 | spanmetrics metric names and namespace prefix for the pinned Collector version | `app/adapter/queries.yaml` |
-| V6 | Chaos Mesh containerd socket path on kind for the chart version | `infra/scripts/up.sh` |
-| V7 | Datadog webhook template variables and the unit of `$LAST_UPDATED`/event date | `datadog/monitors/webhook.py`, `app/alerts.py` |
-| V8 | Calibrated monitor thresholds from one hour of steady baseline | `datadog/monitors/monitors.yaml` |
+| V1 | Datadog site and whether APM/Logs are on the student plan; custom metric allowance vs the series spanmetrics actually creates | `.env`, Phase 3 |
+| V2 | Online Boutique tracing env vars in release v0.10.2 (`ENABLE_TRACING`, `COLLECTOR_SERVICE_ADDR`) and which services are instrumented | `infra/online-boutique/kustomization.yaml` |
+| V3b | That `kube_deployment` and `kube_namespace` are actually present on the container metrics above | `app/adapter/queries.yaml` |
+| V4 | That the Helm keys used really apply 5s collection for the pinned chart version, confirmed in the Metrics Explorer | `infra/datadog/values.yaml` |
+| V5b | That Datadog lowercases the OTel tag values, so `span.kind:server` and `status.code:error` match | `app/adapter/queries.yaml` |
+| V6 | Chaos Mesh containerd socket path on kind for the pinned chart | `infra/scripts/up.sh` |
+| V7 | Datadog webhook template variable names and the unit of the event date | `datadog/monitors/apply.py`, `app/alerts.py` |
+| V8 | Monitor thresholds calibrated from an hour of steady baseline (`make calibrate`) | `datadog/monitors/monitors.yaml` |

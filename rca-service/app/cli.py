@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 
@@ -79,16 +78,6 @@ def poll(args) -> int:
     return 0
 
 
-def contract(args) -> int:
-    """Check a stored frame against the data contract and print what it looks like."""
-    import pandas as pd
-
-    settings = load_settings()
-    report = validate(pd.read_parquet(args.path), args.at, settings.windows)
-    print(json.dumps(report.as_dict(), indent=2))
-    return 0
-
-
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(prog="app.cli", description=__doc__)
@@ -110,11 +99,6 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("poll", help="trigger analyses by polling monitor states")
     p.set_defaults(func=poll)
-
-    p = sub.add_parser("contract", help="validate a stored parquet against the data contract")
-    p.add_argument("path")
-    p.add_argument("--at", type=int, required=True)
-    p.set_defaults(func=contract)
 
     args = parser.parse_args(argv)
     return args.func(args)

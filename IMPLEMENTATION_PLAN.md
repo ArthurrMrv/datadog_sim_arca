@@ -52,7 +52,7 @@ system, not its recorded data.
 | D11 | **Baseline window ends at `t_trigger - eval_window - ingestion_lag`**, not at `t_trigger` | The monitor fires *after* the anomaly has been present for its whole evaluation window. Ending the baseline at the trigger would leak fault data into the "normal" period and weaken PRISM. | Using `t_trigger` directly |
 | D12 | **The RCA service waits about 2 minutes after the trigger before pulling data** | PRISM needs post-fault data as well. At 5s, 1 minute is only 12 points, so detection speed is not the bottleneck. | Querying immediately (too few post-fault points) |
 | D13 | **No "benchmark metric mapping"; a thin adapter instead** | PRISM needs a `time x (service, metric)` matrix. Datadog queries grouped `by {kube_deployment}` already return one series per service. The adapter only renames, aligns, and pivots, and the output uses real Datadog metric names, so it is directly understandable. | Mapping Datadog metrics onto RCAEval's names (pointless for a live system) |
-| D14 | **One new monorepo `rca-sim`; keep `automated_root_cause_analysis` separate as a pip dependency** | In one repo the whole pipeline is visible, and most bugs are at the boundaries (monitor tags vs adapter query vs PRISM's expected columns). The PRISM repo stays focused on research, and the *same* code runs on benchmarks and on live data. | Several repos (coordination overhead); copying PRISM into the new repo (two diverging copies) |
+| D14 | **One new monorepo `rca-sim`, with PRISM vendored verbatim into `rca-service/app/prism/`** (amended during implementation; originally a pip dependency) | In one repo the whole pipeline is visible, and most bugs are at the boundaries (monitor tags vs adapter query vs PRISM's expected columns). The pip route turned out to drag torch, matplotlib and causal-learn into the service, because `RCAEval.e2e.__init__` guards its imports only on Python 3.10/3.12/3.14. Copying the two files it needs keeps the service installable anywhere, and the two-copies risk is closed by running upstream's own `_demo()` as a test. | A pip dependency (unusable dependency weight on 3.11); several repos (coordination overhead) |
 | D15 | **Chaos Mesh** for fault injection | Kubernetes-native, it covers the RCAEval fault families (CPU, memory, network delay/loss, pod kill, IO), and its experiments are declarative YAML that can be versioned. | Manual `kubectl exec stress` (not reproducible); LitmusChaos (heavier) |
 | D16 | **Webhook delivery through a tunnel (`cloudflared`), with a polling fallback** | Datadog runs in the cloud and cannot reach `localhost`. A tunnel gives a public HTTPS URL for the webhook. A poller that checks monitor states through the API needs no inbound exposure, so it keeps working if the tunnel is down. | Exposing a port on the router (unsafe) |
 | D17 | **Datadog configuration as code** (monitors, webhook, dashboard) | Makes the setup reproducible and reviewable, so thresholds can be versioned alongside experiments. | Clicking in the UI (not reproducible) |
@@ -121,12 +121,12 @@ phase is how the next one gets tested (D18).
    **Datadog site**; every API URL and the Agent config depend on it. **VERIFY** in the account URL.
 3. Check *Plan & Usage* for what is included: hosts, custom metric allowance, whether APM and Logs are
    available. **VERIFY**. This decides how strictly cardinality must be controlled (Phase 3).
-4. Make `automated_root_cause_analysis` pip-installable and give PRISM a clean function entry point that
-   does not depend on the benchmark loaders. Document the input format it expects. **This is the data
-   contract (Section 6). Read it from the code, do not assume it.**
+4. Vendor PRISM (`RCAEval/e2e/prism.py` and the `RCAEval/io/time_series.py` it calls) into
+   `rca-service/app/prism/`, unchanged apart from one import line (D14). Document the input format it
+   expects. **This is the data contract (Section 6). Read it from the code, do not assume it.**
 
-**Acceptance:** `pip install -e ../automated_root_cause_analysis` works in a fresh venv, and PRISM runs
-on one RCAEval case with the same result as `main.py`.
+**Acceptance:** upstream's `_demo()` — every claim of the paper under its stated condition, each gap
+resolution, and all 120 documented configurations — passes against the vendored copy.
 
 ### Phase 1: Cluster and application
 
@@ -290,7 +290,8 @@ Verified against `RCAEval/e2e/prism.py` and `RCAEval/io/time_series.py`; see `CL
    FastAPI skeleton once the contract is fixed).
 4. Every **VERIFY** item is checked against the live system or the pinned version's docs and then recorded
    in `docs/verified.md`, so it is not re-guessed later.
-5. Keep PRISM changes in `automated_root_cause_analysis`, never patched inside `rca-sim`.
+5. Keep PRISM changes in `automated_root_cause_analysis` and re-copy the file; never patch the
+   vendored copy, or the live numbers stop comparing with the offline study.
 
 ---
 
@@ -298,7 +299,7 @@ Verified against `RCAEval/e2e/prism.py` and `RCAEval/io/time_series.py`; see `CL
 
 | Phase | Output | Depends on | Parallel with |
 |---|---|---|---|
-| 0 | Datadog keys, PRISM dependency + contract | - | - |
+| 0 | Datadog keys, PRISM vendored + contract | - | - |
 | 1 | kind + Online Boutique + load | 0 | - |
 | 2 | Datadog Agent at 5s | 1 | 3 |
 | 3 | OTel Collector + spanmetrics | 1 | 2 |

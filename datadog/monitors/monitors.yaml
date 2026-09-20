@@ -24,8 +24,8 @@ monitors:
     id_key: errors
     type: metric alert
     query: >-
-      sum(last_1m):sum:traces.span.metrics.calls.count{env:rca-sim,status.code:STATUS_CODE_ERROR} by {service}.as_count()
-      / sum:traces.span.metrics.calls.count{env:rca-sim,span.kind:server} by {service}.as_count() > 0.05
+      sum(last_1m):sum:traces.span.metrics.calls{env:rca-sim,status.code:error} by {service}.as_count()
+      / sum:traces.span.metrics.calls{env:rca-sim,span.kind:server} by {service}.as_count() > 0.05
     message: "Error ratio on {{service.name}} is {{value}}."
     thresholds: {critical: 0.05, warning: 0.02, critical_recovery: 0.01}
 
