@@ -7,7 +7,7 @@ namespace: shop
 
 resources:
   - namespace.yaml
-  - https://github.com/GoogleCloudPlatform/microservices-demo/releases/download/v0.10.2/kubernetes-manifests.yaml
+  - https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/v0.10.2/release/kubernetes-manifests.yaml
   - frontend-nodeport.yaml
 
 labels:
@@ -15,22 +15,13 @@ labels:
     pairs:
       env: rca-sim
 
-patches:
-  # Requests and limits on every service. Without limits, CPU and memory stress faults change nothing
-  # observable: the pod just uses more of an unbounded budget and no saturation metric moves (Phase 1.3).
-  - target:
-      kind: Deployment
-    patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/resources
-        value:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 300m
-            memory: 256Mi
+# Phase 1.3 asked for requests and limits on every service, so that CPU and memory stress faults
+# saturate something observable instead of eating an unbounded budget. Verified 2026-09-20: release
+# v0.10.2 already sets both on all 12 containers, and they are tuned per runtime -- adservice (JVM)
+# gets 300Mi and recommendationservice (Python) 450Mi against 128Mi for the Go services. Flattening
+# them to one value OOM-kills those two on startup, so upstream's values are kept as they are.
 
+patches:
   # Tracing to the OTel Collector. Matches frontend and every *service deployment; redis-cart and
   # loadgenerator are not instrumented and are left alone.
   - target:

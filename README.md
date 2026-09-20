@@ -17,7 +17,9 @@ injection time.
 
 ## From an empty machine to a running loop
 
-**0. Prerequisites.** Docker installed and running, ~4 CPUs and ~8 GB RAM free, Python >= 3.11.
+**0. Prerequisites.** Python >= 3.11 and Docker running with at least **4 CPUs / 6 GB RAM / 20 GB
+disk** available to it — 6 CPUs / 8 GB is comfortable. On macOS and Windows that is the Docker Desktop
+VM's own allocation (Settings -> Resources), not the host's; the default is often too small.
 
 ```bash
 # macOS (Docker Desktop installed separately)
