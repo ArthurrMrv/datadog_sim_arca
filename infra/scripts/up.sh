@@ -43,6 +43,13 @@ helm upgrade --install datadog datadog/datadog \
   --values infra/datadog/values.yaml \
   --set datadog.site="$DD_SITE"
 
+# The Collector must be (re)created *after* the Agent is serving, or its conntrack entry for the
+# Agent's ClusterIP pins to a pod that is still terminating -- and every later dial is refused
+# instantly, even though the Service, endpoints and listener are all correct. That is the failure
+# that looked like a broken OTLP receiver for an hour.
+echo "== waiting for the Agent to be ready before touching the Collector"
+kubectl -n datadog rollout status ds/datadog --timeout=300s
+
 echo "== OTel Collector (Phase 3)"
 # ConfigMap before Deployment: the other order starts a pod that cannot mount its config, so the
 # first thing `make status` shows is a CreateContainerConfigError that fixes itself.
@@ -51,8 +58,9 @@ kubectl -n observability create configmap otel-collector-config \
   --from-file=collector.yaml=infra/otel/collector.yaml \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f infra/otel/deployment.yaml
-# Picks up an edited collector.yaml on a re-run; a no-op on a fresh install.
+# Picks up an edited collector.yaml on a re-run, and gives the pod a fresh network identity.
 kubectl -n observability rollout restart deployment/otel-collector
+kubectl -n observability rollout status deployment/otel-collector --timeout=180s
 [[ "$DEPLOY_JAEGER" == "1" ]] && kubectl apply -f infra/jaeger/jaeger.yaml
 
 echo "== Chaos Mesh (Phase 4)"
