@@ -169,10 +169,19 @@ def apply_dashboard(client) -> None:
 
 
 def calibrate(args) -> int:
-    """Suggest thresholds from a quiet baseline instead of guessing round numbers (Phase 6.1).
+    """Derive the noise-sensitive thresholds from a quiet baseline (Phase 6.1).
 
-    Run it only on an hour with no injection: the point is to place the threshold just above the
-    noise the system produces when nothing is wrong.
+    Only two monitors need calibrating, and each must be calibrated against *the quantity it
+    compares* -- the earlier version took the p99 of raw CPU nanocores and of an error rate in
+    events/s, while those monitors compare ratios, so three of its four numbers were meaningless.
+
+    - latency: absolute seconds, so p99 of `latency_avg` directly.
+    - error ratio: errors divided by requests, so p99 of `error_rate / workload`.
+
+    The saturation monitors are deliberately left alone: "90% of the container's limit" is a
+    definition of saturated, not a noise threshold, and `> 0` restarts needs no statistics either.
+
+    Run it on an hour with no injection; `--apply` writes the result into monitors.yaml.
     """
     sys.path.insert(0, str(ROOT / "rca-service"))
     import numpy as np
@@ -181,25 +190,74 @@ def calibrate(args) -> int:
 
     settings = load_settings()
     queries = load_queries()
-    backend = DatadogBackend(settings, queries)
-    now = int(time.time())
-    frame = backend.fetch(now - args.hours * 3600, now, queries.step_seconds).frame
+    frame = DatadogBackend(settings, queries).fetch(
+        int(time.time()) - args.hours * 3600, int(time.time()), queries.step_seconds
+    ).frame
     spec = yaml.safe_load(DEFINITIONS.read_text())
-    percentile = spec["calibration"]["percentile"]
-    margin = spec["calibration"]["margin"]
+    percentile, margin = spec["calibration"]["percentile"], spec["calibration"]["margin"]
+
+    def p99(values) -> float:
+        values = np.asarray(values, dtype=float).ravel()
+        values = values[np.isfinite(values)]
+        return float(np.percentile(values, percentile)) if values.size else float("nan")
+
+    latency = p99(frame[[c for c in frame.columns if c.endswith("_latency_avg")]].to_numpy())
+    ratios = [
+        frame[f"{svc}_error_rate"].to_numpy() / np.where(
+            frame[f"{svc}_workload"].to_numpy() > 0, frame[f"{svc}_workload"].to_numpy(), np.nan
+        )
+        for svc in {c.rsplit("_", 2)[0] for c in frame.columns if c.endswith("_workload")}
+        if f"{svc}_error_rate" in frame.columns
+    ]
+    # No error column at all means no errors in the window, which is a zero ratio, not missing data.
+    error_ratio = p99(np.concatenate(ratios)) if ratios else 0.0
 
     print(f"baseline of {args.hours}h, {len(frame)} rows; threshold = {margin} x p{percentile}\n")
-    for family in ("latency_p95", "error_rate", "cpu", "mem"):
-        columns = [c for c in frame.columns if c.endswith(f"_{family}")]
-        if not columns:
-            print(f"{family:<12} no data")
+    suggested = {}
+    for key, value, floor in (("latency", latency, 0.05), ("errors", error_ratio, 0.01)):
+        if not np.isfinite(value):
+            print(f"{key:<8} NO DATA -- cannot calibrate; leave the placeholder and investigate")
             continue
-        values = frame[columns].to_numpy(dtype=float).ravel()
-        values = values[~np.isnan(values)]
-        p = float(np.percentile(values, percentile)) if values.size else float("nan")
-        print(f"{family:<12} p{percentile}={p:.4g}  suggested threshold={margin * p:.4g}")
-    print("\nWrite the values you keep into datadog/monitors/monitors.yaml (V8).")
+        # A floor matters on a baseline this quiet: p99 of a near-zero error ratio is ~0, and a
+        # threshold of 0 would alert on the first stray request.
+        critical = round(max(margin * value, floor), 4)
+        suggested[key] = critical
+        print(f"{key:<8} p{percentile}={value:.4g}  critical={critical}")
+    print("\nsaturation and restart monitors need no calibration: 90% of limit and > 0 are "
+          "definitions, not noise levels.")
+
+    if not args.apply:
+        print("\nre-run with --apply to write these into datadog/monitors/monitors.yaml")
+        return 0
+    if len(suggested) < 2:
+        print("\nrefusing to apply a partial calibration")
+        return 1
+    _write_thresholds(suggested)
     return 0
+
+
+def _write_thresholds(suggested: dict[str, float]) -> None:
+    """Rewrite just the `thresholds:` line of the calibrated monitors, comments intact.
+
+    Edited line by line rather than via yaml.dump, which would strip every comment in the file --
+    and the comments are why a threshold change is reviewable.
+    """
+    lines = DEFINITIONS.read_text().splitlines()
+    current = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("id_key:"):
+            current = stripped.split(":", 1)[1].strip()
+        elif stripped.startswith("thresholds:") and current in suggested:
+            critical = suggested[current]
+            indent = line[: len(line) - len(line.lstrip())]
+            lines[i] = (
+                f"{indent}thresholds: {{critical: {critical}, "
+                f"warning: {round(critical * 0.6, 4)}, "
+                f"critical_recovery: {round(critical * 0.5, 4)}}}"
+            )
+            print(f"wrote {current}: critical={critical}")
+    DEFINITIONS.write_text("\n".join(lines) + "\n")
 
 
 def apply_all(args) -> int:
@@ -235,8 +293,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--url", help="public URL of rca-service /webhook (from cloudflared)")
     p.set_defaults(func=apply_all)
 
-    p = sub.add_parser("calibrate", help="suggest thresholds from a quiet baseline")
+    p = sub.add_parser("calibrate", help="derive thresholds from a quiet baseline")
     p.add_argument("--hours", type=int, default=1)
+    p.add_argument("--apply", action="store_true", help="write them into monitors.yaml")
     p.set_defaults(func=calibrate)
 
     p = sub.add_parser("delete", help="remove every rca-sim monitor")
