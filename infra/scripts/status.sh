@@ -18,7 +18,13 @@ agent=$(kubectl -n datadog get pods -l app.kubernetes.io/component=agent -o name
 
 echo; echo "== OTel Collector"
 kubectl -n observability get deployment otel-collector 2>/dev/null || echo "not deployed"
-kubectl -n observability logs deployment/otel-collector --tail=5 2>/dev/null || true
+refused=$(kubectl -n observability logs deployment/otel-collector --since=2m 2>/dev/null \
+  | grep -c 'connection refused' || true)
+if [[ "${refused:-0}" -gt 0 ]]; then
+  echo "  $refused export failures in the last 2min -> run: make reconnect"
+else
+  echo "  exporting cleanly"
+fi
 
 echo; echo "== freshness of the metrics the adapter reads"
 .venv/bin/python -m app.cli freshness \

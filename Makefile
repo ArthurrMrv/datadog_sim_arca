@@ -10,7 +10,7 @@ DURATION   ?= 300
 CONFIG     ?= experiments/configs/base.yaml
 MODE       ?= webhook
 
-.PHONY: help venv test lint up down status clusters prepull pause resume monitors calibrate rca tunnel inject analyze replay eval sweep clean
+.PHONY: help venv test lint up down status reconnect clusters prepull pause resume monitors calibrate rca tunnel inject analyze replay eval sweep clean
 
 help: ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
@@ -33,6 +33,15 @@ up: ## create the cluster and deploy app, Agent, Collector, Chaos Mesh (Phases 1
 
 down: ## delete the cluster (results/ survives)
 	infra/scripts/down.sh
+
+reconnect: ## fix the Collector after an Agent restart (stale gRPC/conntrack -> connection refused)
+	@# The Collector cannot recover on its own: its conntrack entry still translates the Agent's
+	@# ClusterIP to a pod that no longer exists, so gRPC keeps redialling into a dead NAT. A new pod
+	@# gets a new source IP and therefore a fresh entry.
+	kubectl -n datadog rollout status ds/datadog --timeout=300s
+	kubectl -n observability rollout restart deployment/otel-collector
+	kubectl -n observability rollout status deployment/otel-collector --timeout=180s
+	@echo "give spanmetrics ~60s, then: make status"
 
 clusters: ## list kind clusters: any besides rca-sim is a container holding RAM for nothing
 	@kind get clusters
