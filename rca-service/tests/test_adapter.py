@@ -146,3 +146,27 @@ def test_error_family_survives_when_the_fault_produces_errors(query_config):
 
     assert "cartservice_error_rate" in frame.columns
     assert meta["zero_filled"] == []
+
+
+def test_sparse_error_counts_fill_their_gaps(query_config):
+    """Errors are rare, so the series exists but is mostly holes.
+
+    `.as_rate()` returns null for a bucket with no matching events, which becomes NaN, and a column
+    past `max_nan_fraction` is dropped as too sparse -- so the error signal vanished on precisely
+    the intermittent faults it is evidence for. A gap in a counter is zero, not missing.
+    """
+    spec = QuerySpec(name="error_rate", query="sum:calls{status.code:status_code_error} by {s}",
+                     group_by="service", rollup="sum", absent_means_zero=True)
+    cfg = replace(query_config, families=(query_config.families[0], spec))
+    times = list(range(1000, 1100, STEP))
+    series = [
+        RawSeries("cpu", "cartservice", tuple((t, 1.0 + t % 3) for t in times)),
+        # Two error events in a twenty-bucket window: 90% of the column would be NaN.
+        RawSeries("error_rate", "cartservice", ((1050, 2.0), (1075, 3.0))),
+    ]
+
+    frame, meta = to_frame(series, 1000, 1095, STEP, cfg)
+
+    assert "cartservice_error_rate" in frame.columns, "sparse error column was dropped"
+    assert not frame["cartservice_error_rate"].isna().any()
+    assert frame["cartservice_error_rate"].max() == 3.0
