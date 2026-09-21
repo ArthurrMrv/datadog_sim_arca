@@ -88,3 +88,22 @@ def test_ground_truth_record_is_complete(tmp_path, monkeypatch):
         "fault_id": "cpu-1", "fault_type": "cpu", "target_service": "cartservice",
         "params": {"workers": "2"}, "t_start": 1_000_000, "t_end": 1_000_300,
     }
+
+
+def test_byte_sizes_use_chaos_mesh_grammar_not_kubernetes_quantities():
+    """`100Mi` is a valid Kubernetes quantity and an invalid Chaos Mesh size.
+
+    Chaos Mesh validates `Bytes` fields with go-units' *decimal* parser, which has no binary
+    suffixes at all, so the `i` that every Kubernetes limit in this repo carries is read as part of
+    the suffix and the admission webhook rejects the whole experiment
+    (`incorrect bytes format: invalid suffix: 'mi'`, docs/verified.md). The two grammars look
+    identical, so nothing but a check like this keeps them apart.
+    """
+    for fault, params in inject.DEFAULTS.items():
+        for key, value in params.items():
+            if key not in {"size"}:
+                continue
+            assert not value.rstrip("Bb").endswith(("i", "I")), (
+                f"{fault}.{key}={value!r} is a Kubernetes quantity; "
+                f"Chaos Mesh wants a decimal size such as '100MB' or a percentage"
+            )
