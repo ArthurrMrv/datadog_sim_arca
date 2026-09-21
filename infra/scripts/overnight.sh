@@ -17,8 +17,13 @@ flock -n 9 || {
   exit 1
 }
 
+# The settle is not a warm-up: it is the input to the next step. `calibrate --hours 1` reads the
+# preceding hour, so an injection inside it raises every threshold above the faults the night is
+# meant to detect. Set it to 0 only when the cluster has already been quiet for an hour, or when
+# CALIBRATE=0 makes the question moot.
 SETTLE_SECONDS=${SETTLE_SECONDS:-3600}
 MONITOR_SETTLE_SECONDS=${MONITOR_SETTLE_SECONDS:-300}
+CALIBRATE=${CALIBRATE:-1}   # 0 reuses the thresholds already in monitors.yaml
 CONFIG=${CONFIG:-experiments/configs/base.yaml}
 PY=.venv/bin/python
 
@@ -33,11 +38,15 @@ if grep -vE '^error_rate' /tmp/freshness.txt | grep -q 'no data'; then
   exit 1
 fi
 
-step "settling ${SETTLE_SECONDS}s for a quiet baseline (no injections in this window)"
-sleep "$SETTLE_SECONDS"
+if [ "$CALIBRATE" = 1 ]; then
+  step "settling ${SETTLE_SECONDS}s for a quiet baseline (no injections in this window)"
+  sleep "$SETTLE_SECONDS"
 
-step "calibrating thresholds from that baseline and writing them to monitors.yaml"
-$PY datadog/monitors/apply.py calibrate --hours 1 --apply
+  step "calibrating thresholds from that baseline and writing them to monitors.yaml"
+  $PY datadog/monitors/apply.py calibrate --hours 1 --apply
+else
+  step "CALIBRATE=0: keeping the thresholds already in monitors.yaml"
+fi
 
 step "applying monitors, webhook and dashboard"
 $PY datadog/monitors/apply.py apply

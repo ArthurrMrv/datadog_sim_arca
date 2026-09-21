@@ -118,6 +118,8 @@ def test_cooldown_outlasts_the_baseline_window():
     recovery_margin = 120
     for path in sorted((root / "experiments" / "configs").glob("*.yaml")):
         config = yaml.safe_load(path.read_text())
+        if not config.get("scorable", True):
+            continue  # a plumbing check, exempt by declaring itself unscorable
         assert config["cooldown_seconds"] >= WindowConfig().baseline_seconds + recovery_margin, (
             f"{path.name}: cooldown {config['cooldown_seconds']}s does not clear a "
             f"{WindowConfig().baseline_seconds}s baseline plus {recovery_margin}s of recovery"
