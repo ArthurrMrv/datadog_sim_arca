@@ -1,0 +1,60 @@
+nohup: ignoring input
+infra/scripts/overnight.sh
+
+=== 23:59:32Z  checking every metric family is arriving before committing to the night
+site=us5.datadoghq.com  api_key=32 chars  token=65 chars
+
+cpu            18s ago
+mem            18s ago
+latency_avg    8s ago
+error_rate     368s ago
+workload       8s ago
+restarts       23s ago
+
+=== 23:59:34Z  settling 3600s for a quiet baseline (no injections in this window)
+
+=== 00:59:34Z  calibrating thresholds from that baseline and writing them to monitors.yaml
+baseline of 1h, 721 rows; threshold = 1.5 x p99
+
+latency  p99=0.009481  critical=0.05
+errors   p99=0  critical=0.01
+
+saturation and restart monitors need no calibration: 90% of limit and > 0 are definitions, not noise levels.
+wrote latency: critical=0.05
+wrote errors: critical=0.01
+
+=== 00:59:37Z  applying monitors, webhook and dashboard
+no --url given: monitors will notify a webhook that does not exist yet.
+The poller (make rca MODE=poll) works without it (D16).
+Traceback (most recent call last):
+  File "/home/ec2-user/datadog_sim_arca/datadog/monitors/apply.py", line 309, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/datadog/monitors/apply.py", line 305, in main
+    return args.func(args)
+           ^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/datadog/monitors/apply.py", line 272, in apply_all
+    apply_monitors(client, spec)
+  File "/home/ec2-user/datadog_sim_arca/datadog/monitors/apply.py", line 129, in apply_monitors
+    monitor_id = api.create_monitor(Monitor(**body)).id
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/v1/api/monitors_api.py", line 633, in create_monitor
+    return self._create_monitor_endpoint.call_with_http_info(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/api_client.py", line 845, in call_with_http_info
+    return self.api_client.call_api(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/api_client.py", line 311, in call_api
+    return self._call_api(
+           ^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/api_client.py", line 115, in _call_api
+    response = self.rest_client.request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/rest.py", line 224, in request
+    raise ApiException(http_resp=r)
+datadog_api_client.exceptions.ApiException: (400)
+Reason: Bad Request
+HTTP response headers: {'date': 'Mon, 21 Sep 2026 00:59:37 GMT', 'content-type': 'application/json', 'content-security-policy': "frame-ancestors 'self'; report-uri https://logs.browser-intake-datadoghq.com/api/v2/logs?dd-api-key=pube4f163c23bbf91c16b8f57f56af9fc58&dd-evp-origin=content-security-policy&ddsource=csp-report&ddtags=site%3Aus5.datadoghq.com", 'x-frame-options': 'SAMEORIGIN', 'vary': 'Accept-Encoding', 'content-encoding': 'gzip', 'x-ratelimit-limit': '500', 'x-ratelimit-period': '10', 'x-ratelimit-remaining': '499', 'x-ratelimit-reset': '3', 'x-ratelimit-name': 'post_monitors', 'x-content-type-options': 'nosniff', 'strict-transport-security': 'max-age=31536000; includeSubDomains; preload', 'transfer-encoding': 'chunked'}
+HTTP response body: {'errors': ['Alert threshold (0.05) does not match that used in the query (0.5).']}
+
+make: *** [Makefile:88: overnight] Error 1
