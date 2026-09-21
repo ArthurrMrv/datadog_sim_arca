@@ -4,92 +4,31 @@
   <img src="img/infra.png" alt="Online Boutique on kind, faulted by Chaos Mesh, observed by Datadog, ranked by PRISM, scored against ground truth" width="100%">
 </p>
 
-<details>
-<summary>TikZ source for the diagram above</summary>
+Online Boutique runs on a local `kind` cluster under steady load. Datadog collects its metrics. Chaos
+Mesh injects faults on demand. A Datadog monitor detects the incident. PRISM then ranks the root cause
+from the window Datadog itself provides.
 
-```latex
-\scalebox{0.80}{\begin{tikzpicture}[node distance=6mm]
+PRISM is the graph-free RCA method from
+[`automated_root_cause_analysis`](https://github.com/ArthurrMrv/automated_root_cause_analysis). It is
+vendored unchanged in `rca-service/app/prism/`.
 
-% ---- cluster -----------------------------------------------------------
-  \node[box=cInfra, minimum width=26mm] (app)
-       {\textbf{Online Boutique}\\11 services, Kubernetes};
-  \node[box=cInfra, left=8mm of app, minimum width=14mm] (load)
-       {load generator\\steady RPS};
-  \node[box=cRoot, below=8mm of load, minimum width=14mm] (chaos)
-       {\textbf{Chaos Mesh}\\cpu, mem, disk,\\delay, loss, kill};
-  \node[box=cData, right=8mm of app, minimum width=20mm] (otel)
-       {OTel Collector\\\texttt{spanmetrics}};
-  \node[box=cData, below=8mm of otel, minimum width=20mm] (agent)
-       {Datadog Agent\\5\,s collection};
-
-  \begin{scope}[on background layer]
-    \node[draw=cInfra!40, fill=cBg, rounded corners=3pt,
-          fit=(load)(app)(otel)(agent)(chaos), inner sep=5pt] (cluster) {};
-  \end{scope}
-  \node[font=\tiny, text=cInfra, anchor=south west] at ($(cluster.north west)+(0,0.5mm)$)
-       {kind cluster (1 node = 1 Datadog host)};
-
-  \draw[flow] (load) -- (app);
-  \draw[dflow] (app) -- node[above, font=\tiny, text=cData] {OTLP} (otel);
-  \draw[dflow] (otel) -- (agent);
-  \draw[dflow] (app.south) |- node[pos=0.75, above, font=\tiny, text=cData] {kubelet} (agent.west);
-  \draw[rflow] (chaos) -- node[right, font=\tiny, text=cRoot, pos=0.4] {inject} (app);
-
-% ---- datadog -----------------------------------------------------------
-  \node[box=cData, right=13mm of cluster.east, anchor=west, minimum width=24mm] (dd)
-       {\textbf{Datadog}\\metrics, dashboards\\monitors: 1-min threshold,\\multi-alert by service};
-  \draw[dflow] (agent.east) -- ++(4mm,0) |- (dd.west);
-
-% ---- rca service -------------------------------------------------------
-  \node[box=cAgent, right=11mm of dd, minimum width=30mm] (svc)
-       {\textbf{rca-service} (FastAPI)\\
-        1. dedupe triggered alerts\\
-        2. compute windows, wait\\
-        3. Datadog API $\rightarrow$ adapter\\
-        4. \textbf{PRISM} ranking\\
-        5. report + LLM summary};
-  \draw[rflow] (dd) -- node[above, font=\tiny, text=cRoot, pos=0.5] {alert}
-                      node[below, font=\tiny, text=cGrey, pos=0.5] {webhook} (svc);
-  \draw[dflow] (svc.north) -- ++(0,4mm) -| node[pos=0.25, above, font=\tiny, text=cData]
-                                             {query window} (dd.north);
-
-% ---- ground truth / scoring -------------------------------------------
-  \node[box=cGrey, below=11mm of svc, minimum width=30mm] (score)
-       {\textbf{scoring}: AC@$k$, Avg@5,\\time to detect, time to diagnose,\\
-        estimated vs.\ true anomaly time};
-  \draw[flow] (svc) -- (score);
-  \draw[rflow] (chaos.south) |- node[pos=0.72, above, font=\tiny, text=cRoot]
-                                {ground truth (JSONL)} (score.west);
-
-\end{tikzpicture}}
-```
-
-</details>
-
-A live root cause analysis loop: Online Boutique runs on a local `kind` cluster under steady load,
-Datadog collects its metrics, Chaos Mesh injects faults on demand, a Datadog monitor detects the
-incident, and PRISM — the graph-free RCA method from
-[`automated_root_cause_analysis`](https://github.com/ArthurrMrv/automated_root_cause_analysis),
-vendored unchanged in `rca-service/app/prism/` — ranks the root cause from the window Datadog itself
-provides.
-
-Every injection is logged as ground truth, so the whole loop is scorable: AC@k as in RCAEval, plus two
-numbers the offline benchmark cannot give — how long detection takes, and what it costs not to know the
-injection time.
+Every injection is logged as ground truth, so the whole loop is scorable. AC@k, as in RCAEval. Plus
+two numbers the offline benchmark cannot give: how long detection takes, and what it costs not to know
+the injection time.
 
 | Where to look | For |
 |---|---|
-| `IMPLEMENTATION_PLAN.md` | why each piece is the way it is — decision log D1–D18, phases, risks |
-| `CLAUDE.md` | how to work in this repo — architecture, data contract, conventions |
-| `docs/verified.md` | what has been checked against the live system |
+| `IMPLEMENTATION_PLAN.md` | Why each piece is the way it is. Decision log D1-D18, phases, risks. |
+| `CLAUDE.md` | How to work in this repo. Architecture, data contract, conventions. |
+| `docs/verified.md` | What has been checked against the live system. |
 
 ## From an empty machine to a running loop
 
 ### 0. Prerequisites
 
-Python >= 3.11 and Docker running with at least **4 CPUs / 6 GB RAM / 20 GB disk** available to it —
-6 CPUs / 8 GB is comfortable. On macOS and Windows that is the Docker Desktop VM's own allocation
-(Settings -> Resources), not the host's; the default is often too small.
+Python >= 3.11. Docker running with at least **4 CPUs / 6 GB RAM / 20 GB disk** available to it.
+6 CPUs / 8 GB is comfortable. On macOS and Windows that budget is the Docker Desktop VM's own
+allocation (Settings -> Resources), not the host's. The default is often too small.
 
 ```bash
 # macOS (Docker Desktop installed separately)
@@ -120,12 +59,12 @@ cd datadog_sim_arca
 
 ### 2. Datadog credentials
 
-**2a. API key** — *Organization Settings -> API Keys -> New Key*. This is what the in-cluster Agent
-uses to ship metrics; a token cannot replace it.
+**2a. API key.** *Organization Settings -> API Keys -> New Key*. This is what the in-cluster Agent
+uses to ship metrics. A token cannot replace it.
 
-**2b. Service Access Token** — *Organization Settings -> Service Accounts*, create (or pick) a service
-account, then *Access Tokens -> + New Token*. Set expiry to **Never** for a long campaign, and select
-**exactly these six scopes** — nothing else is needed, and nothing else should be granted:
+**2b. Service Access Token.** *Organization Settings -> Service Accounts*. Create or pick a service
+account, then *Access Tokens -> + New Token*. Set expiry to **Never** for a long campaign. Select
+**exactly these six scopes**. Nothing else is needed, and nothing else should be granted:
 
 | Scope | Why this pipeline needs it |
 |---|---|
@@ -139,7 +78,7 @@ account, then *Access Tokens -> + New Token*. Set expiry to **Never** for a long
 Scope names are case-sensitive. To only *run* the loop against monitors that already exist
 (`make rca`, `make analyze`, `make status`), `timeseries_query` and `monitors_read` are sufficient.
 
-**2c. Fill in `.env`** — `DD_SITE` is the host part of your Datadog URL (`datadoghq.eu`,
+**2c. Fill in `.env`.** `DD_SITE` is the host part of your Datadog URL (`datadoghq.eu`,
 `datadoghq.com`, `us5.datadoghq.com`, ...).
 
 ```bash
@@ -149,7 +88,7 @@ ${EDITOR:-nano} .env
 
 ### 3. Install the service
 
-PRISM is in-tree, so this pulls nothing heavier than pandas.
+PRISM is in-tree. This pulls nothing heavier than pandas.
 
 ```bash
 make venv
@@ -157,7 +96,7 @@ make venv
 
 ### 4. Check the checkout before touching the cloud
 
-69 tests, no cluster, no account.
+69 tests. No cluster, no account.
 
 ```bash
 make test
@@ -165,9 +104,9 @@ make test
 
 ### 5. Bring up the cluster
 
-~10 min: kind + Online Boutique + Agent + Collector + Chaos Mesh. Use `PREPULL=1 make up` where the
-node cannot reach a registry — common in Codespaces and devcontainers — or to reuse the host's image
-cache on a re-created cluster.
+Takes ~10 min: kind, Online Boutique, Agent, Collector, Chaos Mesh. Use `PREPULL=1 make up` where the
+node cannot reach a registry. That is common in Codespaces and devcontainers. It also reuses the
+host's image cache on a re-created cluster.
 
 ```bash
 make up
@@ -183,7 +122,7 @@ kubectl -n shop get pods -w
 
 ### 7. Gate: is every metric family arriving?
 
-A family reading "no data" means its query does not match what the cluster emits — fix
+A family reading "no data" means its query does not match what the cluster emits. Fix
 `rca-service/app/adapter/queries.yaml` before going further.
 
 ```bash
@@ -192,8 +131,8 @@ make status
 
 ### 8. Calibrate thresholds
 
-On a quiet hour, then write the values into `datadog/monitors/monitors.yaml` (the ones in git are
-placeholders).
+Calibrate on a quiet hour, then write the values into `datadog/monitors/monitors.yaml`. The ones in
+git are placeholders.
 
 ```bash
 make calibrate HOURS=1
@@ -201,7 +140,7 @@ make calibrate HOURS=1
 
 ### 9. Expose the webhook
 
-Leave it running; copy the `https://....trycloudflare.com` URL it prints.
+Leave it running. Copy the `https://....trycloudflare.com` URL it prints.
 
 ```bash
 make tunnel
@@ -217,7 +156,7 @@ make monitors URL=https://<tunnel-url>/webhook
 
 ### 11. Start the RCA service
 
-In another terminal — `make rca MODE=poll` instead if you skipped step 9.
+Run it in another terminal. Use `make rca MODE=poll` instead if you skipped step 9.
 
 ```bash
 make rca
@@ -225,7 +164,7 @@ make rca
 
 ### 12. Inject a fault
 
-A monitor fires in ~2 min; the report lands ~3 min later.
+A monitor fires in ~2 min. The report lands ~3 min later.
 
 ```bash
 make inject FAULT=delay SERVICE=cartservice DURATION=300
@@ -243,16 +182,18 @@ cat results/incidents/*/report.md
 per fault type, AC@k against ground truth, the anatomy of a single incident, and how far the estimated
 anomaly time fell from the real one. It runs before a campaign too, and says what is missing.
 
-Then `make eval` runs a full campaign (~3.5 h at `repetitions: 1`, ~10.7 h as configured) and
-`make sweep` re-ranks every stored incident at 1s / 5s / 15s. `make down` deletes the cluster;
+`make eval` runs a full campaign. That is ~3.5 h at `repetitions: 1`, ~10.7 h as configured.
+`make sweep` re-ranks every stored incident at 1s / 5s / 15s. `make down` deletes the cluster, and
 `results/` survives. `make help` lists every target.
 
 ## Status
 
-The code and configuration for all eight phases are in place and the offline half is verified: the
-data contract, the adapter, the window arithmetic, the webhook path and the scoring are covered by
-tests that run PRISM for real on a Datadog-shaped payload, and the vendored PRISM is checked against
-upstream's own demo. Every container metric name and all five monitor definitions have been validated
-against the Datadog API, and the spanmetrics configuration against the connector's documentation
-(`docs/verified.md`). What is left open needs the cluster running: tag presence, 5s collection, the
-demo's tracing env vars, and calibrated thresholds. `make status` is what surfaces them.
+The code and configuration for all eight phases are in place. The offline half is verified. Tests
+cover the data contract, the adapter, the window arithmetic, the webhook path and the scoring, and
+they run PRISM for real on a Datadog-shaped payload. The vendored PRISM is checked against upstream's
+own demo. Every container metric name and all five monitor definitions have been validated against the
+Datadog API, and the spanmetrics configuration against the connector's documentation
+(`docs/verified.md`).
+
+What is left open needs the cluster running: tag presence, 5s collection, the demo's tracing env vars,
+and calibrated thresholds. `make status` is what surfaces them.

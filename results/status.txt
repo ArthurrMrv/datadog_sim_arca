@@ -1,0 +1,82 @@
+[ec2-user@ip-172-31-1-1 datadog_sim_arca]$ infra/scripts/status.sh
+== pods
+NAME                                     READY   STATUS    RESTARTS   AGE   IP            NODE                    NOMINATED NODE   READINESS GATES
+adservice-8dcc449cb-zg9wk                1/1     Running   0          10h   10.244.0.65   rca-sim-control-plane   <none>           <none>
+cartservice-7d5cd7648f-gh6gh             1/1     Running   0          10h   10.244.0.66   rca-sim-control-plane   <none>           <none>
+checkoutservice-6957f9769b-txv8q         1/1     Running   0          10h   10.244.0.67   rca-sim-control-plane   <none>           <none>
+currencyservice-f99f4d99d-mv95q          1/1     Running   0          10h   10.244.0.68   rca-sim-control-plane   <none>           <none>
+emailservice-6596958858-lbjjq            1/1     Running   0          10h   10.244.0.69   rca-sim-control-plane   <none>           <none>
+frontend-6b6b658599-xgtg5                1/1     Running   0          10h   10.244.0.70   rca-sim-control-plane   <none>           <none>
+loadgenerator-8dc89f874-tpvpk            1/1     Running   0          11h   10.244.0.11   rca-sim-control-plane   <none>           <none>
+paymentservice-789cd694cb-bhfwb          1/1     Running   0          10h   10.244.0.71   rca-sim-control-plane   <none>           <none>
+productcatalogservice-7fdb98654d-mv25p   1/1     Running   0          10h   10.244.0.72   rca-sim-control-plane   <none>           <none>
+recommendationservice-6c9f45687d-kq49j   1/1     Running   0          10h   10.244.0.73   rca-sim-control-plane   <none>           <none>
+redis-cart-7ff8f4d6ff-cdnr4              1/1     Running   0          11h   10.244.0.16   rca-sim-control-plane   <none>           <none>
+shippingservice-7ccf9fb588-7vj2m         1/1     Running   0          10h   10.244.0.74   rca-sim-control-plane   <none>           <none>
+
+== restarts in shop (non-zero means an unfinished fault or a real problem)
+POD                                      RESTARTS
+adservice-8dcc449cb-zg9wk                0
+cartservice-7d5cd7648f-gh6gh             0
+checkoutservice-6957f9769b-txv8q         0
+currencyservice-f99f4d99d-mv95q          0
+emailservice-6596958858-lbjjq            0
+frontend-6b6b658599-xgtg5                0
+loadgenerator-8dc89f874-tpvpk            0
+paymentservice-789cd694cb-bhfwb          0
+productcatalogservice-7fdb98654d-mv25p   0
+recommendationservice-6c9f45687d-kq49j   0
+redis-cart-7ff8f4d6ff-cdnr4              0
+shippingservice-7ccf9fb588-7vj2m         0
+
+== Datadog Agent checks
+    container
+    ---------
+      Instance ID: container [OK]
+      Configuration Source: file:/etc/datadog-agent/conf.d/container.yaml
+--
+    container_image
+    ---------------
+      Instance ID: container_image [OK]
+      Long Running Check: true
+--
+    container_lifecycle
+    -------------------
+      Instance ID: container_lifecycle [OK]
+      Long Running Check: true
+--
+    containerd
+    ----------
+      Instance ID: containerd [OK]
+      Configuration Source: file:/etc/datadog-agent/conf.d/containerd.d/conf.yaml.default
+--
+    kubelet
+    -------
+      Instance ID: kubelet [OK]
+      Configuration Source: file:/etc/datadog-agent/conf.d/kubelet.yaml
+--
+  container-images: 508
+  container-lifecycle: 6
+
+=========
+APM Agent
+--
+    containerd
+    cri
+    kubernetes
+
+
+== OTel Collector
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+otel-collector   1/1     1            1           11h
+  exporting cleanly
+
+== freshness of the metrics the adapter reads
+site=us5.datadoghq.com  api_key=32 chars  token=65 chars
+
+cpu            11s ago
+mem            11s ago
+latency_avg    16s ago
+error_rate     no data
+workload       16s ago
+restarts       16s ago
