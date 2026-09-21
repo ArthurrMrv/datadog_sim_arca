@@ -1,0 +1,60 @@
+nohup: ignoring input
+infra/scripts/overnight.sh
+
+=== 09:08:33Z  checking every metric family is arriving before committing to the night
+site=us5.datadoghq.com  api_key=32 chars  token=65 chars
+
+cpu            18s ago
+mem            18s ago
+latency_avg    23s ago
+error_rate     no data
+workload       13s ago
+restarts       8s ago
+
+=== 09:08:36Z  settling 3600s for a quiet baseline (no injections in this window)
+
+=== 10:08:36Z  calibrating thresholds from that baseline and writing them to monitors.yaml
+baseline of 1h, 721 rows; threshold = 1.5 x p99
+
+latency  p99=0.009479  critical=0.05
+errors   p99=0  critical=0.01
+
+saturation and restart monitors need no calibration: 90% of limit and > 0 are definitions, not noise levels.
+wrote latency: critical=0.05
+wrote errors: critical=0.01
+
+=== 10:08:39Z  applying monitors, webhook and dashboard
+no --url given: monitors will notify a webhook that does not exist yet.
+The poller (make rca MODE=poll) works without it (D16).
+monitor 22609607: rca-sim latency by service
+monitor 22609608: rca-sim error rate by service
+monitor 22609609: rca-sim container restarts
+monitor 22609610: rca-sim cpu saturation
+monitor 22609611: rca-sim memory saturation
+dashboard created: /dashboard/n7i-hyi-qyr/rca-sim
+  RCA_DASHBOARD_ID=n7i-hyi-qyr
+
+=== 10:08:42Z  letting monitors settle 300s
+
+=== 10:13:42Z  starting the RCA service (poller: no tunnel needed)
+
+=== 10:13:52Z  campaign: experiments/configs/base.yaml
+20 injections + 4 fault-free periods = 6.3 h of wall clock at 17 min each
+[1/20] mem -> productcatalogservice
+Traceback (most recent call last):
+  File "/home/ec2-user/datadog_sim_arca/experiments/live_eval.py", line 157, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/experiments/live_eval.py", line 147, in main
+    run_campaign(config, settings, dry_run=args.dry_run)
+  File "/home/ec2-user/datadog_sim_arca/experiments/live_eval.py", line 78, in run_campaign
+    chaos.inject(
+  File "/home/ec2-user/datadog_sim_arca/chaos/inject.py", line 130, in inject
+    kubectl("apply", "-f", "-", stdin=manifest)
+  File "/home/ec2-user/datadog_sim_arca/chaos/inject.py", line 74, in kubectl
+    return subprocess.run(
+           ^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['kubectl', 'apply', '-f', '-']' returned non-zero exit status 1.
+make: *** [Makefile:88: overnight] Error 1

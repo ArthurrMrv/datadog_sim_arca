@@ -1,0 +1,123 @@
+INFO polling monitors tagged rca-sim every 15s
+INFO incident 1789988930-d71b57 from rca-sim cpu saturation (kube_deployment:frontend)
+INFO incident 1789988930-d71b57: waiting 50s for the post window
+INFO dropped 0 sparse and 24 constant columns
+INFO incident 1789988930-d71b57: top suspects ['frontend', 'currencyservice', 'productcatalogservice']
+INFO incident 1789989468-8a8612 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1789989468-8a8612: waiting 47s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1789989468-8a8612: top suspects ['checkoutservice', 'paymentservice', 'frontend']
+INFO incident 1789991088-2ba243 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1789991088-2ba243: waiting 58s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1789991088-2ba243: top suspects ['checkoutservice', 'paymentservice', 'frontend']
+INFO incident 1789992288-e04819 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1789992288-e04819: waiting 47s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1789992288-e04819: top suspects ['paymentservice', 'checkoutservice', 'frontend']
+INFO incident 1789993908-d0e8b8 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1789993908-d0e8b8: waiting 59s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1789993908-d0e8b8: top suspects ['checkoutservice', 'frontend', 'cartservice']
+INFO incident 1789994990-d2bcb6 from rca-sim cpu saturation (kube_deployment:productcatalogservice)
+INFO incident 1789994990-d2bcb6: waiting 50s for the post window
+INFO dropped 0 sparse and 24 constant columns
+INFO incident 1789994990-d2bcb6: top suspects ['productcatalogservice', 'checkoutservice', 'recommendationservice']
+INFO incident 1789996610-415ffd from rca-sim cpu saturation (kube_deployment:checkoutservice)
+INFO incident 1789996610-415ffd: waiting 57s for the post window
+INFO dropped 0 sparse and 24 constant columns
+INFO incident 1789996610-415ffd: top suspects ['checkoutservice', 'frontend', 'paymentservice']
+INFO incident 1789997268-a11a6e from rca-sim error rate by service (service:paymentservice)
+INFO incident 1789997268-a11a6e: waiting 47s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1789997268-a11a6e: top suspects ['paymentservice', 'frontend', 'checkoutservice']
+INFO incident 1789998408-b9eab6 from rca-sim error rate by service (service:paymentservice)
+INFO incident 1789998408-b9eab6: waiting 47s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1789998408-b9eab6: top suspects ['checkoutservice', 'productcatalogservice', 'frontend']
+INFO incident 1790000028-e40918 from rca-sim error rate by service (service:frontend)
+INFO incident 1790000028-e40918: waiting 57s for the post window
+INFO dropped 0 sparse and 22 constant columns
+INFO incident 1790000028-e40918: top suspects ['checkoutservice', 'frontend', 'cartservice']
+INFO incident 1790000388-265d92 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1790000388-265d92: waiting 55s for the post window
+INFO dropped 0 sparse and 20 constant columns
+INFO incident 1790000388-265d92: top suspects ['paymentservice', 'productcatalogservice', 'checkoutservice']
+ERROR poll failed; retrying
+Traceback (most recent call last):
+  File "/home/ec2-user/datadog_sim_arca/rca-service/app/poller.py", line 60, in run
+    for alert in self.poll_once():
+                 ^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/rca-service/app/poller.py", line 36, in poll_once
+    for monitor in self._monitors():
+                   ^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/rca-service/app/poller.py", line 80, in _monitors
+    MonitorsApi(ApiClient(configuration)).list_monitors(
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/v1/api/monitors_api.py", line 757, in list_monitors
+    return self._list_monitors_endpoint.call_with_http_info(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/api_client.py", line 845, in call_with_http_info
+    return self.api_client.call_api(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/api_client.py", line 311, in call_api
+    return self._call_api(
+           ^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/api_client.py", line 115, in _call_api
+    response = self.rest_client.request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ec2-user/datadog_sim_arca/.venv/lib64/python3.11/site-packages/datadog_api_client/rest.py", line 222, in request
+    raise ServiceException(http_resp=r)
+datadog_api_client.exceptions.ServiceException: (500)
+Reason: Internal Server Error
+HTTP response headers: {'date': 'Mon, 21 Sep 2026 14:33:27 GMT', 'x-content-type-options': 'nosniff', 'strict-transport-security': 'max-age=31536000; includeSubDomains; preload', 'content-length': '0'}
+
+INFO incident 1790001647-0eb1d1 from rca-sim latency by service (service:frontend)
+INFO dropped 0 sparse and 24 constant columns
+INFO incident 1790001647-0eb1d1: top suspects ['frontend', 'productcatalogservice', 'emailservice']
+INFO incident 1790002488-7a3ea8 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1790002488-7a3ea8: waiting 49s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790002488-7a3ea8: top suspects ['checkoutservice', 'paymentservice', 'frontend']
+INFO incident 1790003748-5e70e1 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1790003748-5e70e1: waiting 59s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790003748-5e70e1: top suspects ['paymentservice', 'checkoutservice', 'frontend']
+INFO incident 1790005908-2f60c3 from rca-sim error rate by service (service:paymentservice)
+INFO incident 1790005908-2f60c3: waiting 45s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790005908-2f60c3: top suspects ['checkoutservice', 'paymentservice', 'frontend']
+INFO incident 1790006388-27638a from rca-sim error rate by service (service:frontend)
+INFO incident 1790006388-27638a: waiting 54s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790006388-27638a: top suspects ['checkoutservice', 'productcatalogservice', 'frontend']
+INFO incident 1790006868-00412e from rca-sim error rate by service (service:paymentservice)
+INFO incident 1790006868-00412e: waiting 54s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790006868-00412e: top suspects ['paymentservice', 'checkoutservice', 'frontend']
+INFO incident 1790008368-9699dd from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1790008368-9699dd: waiting 58s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790008368-9699dd: top suspects ['checkoutservice', 'frontend', 'paymentservice']
+INFO incident 1790009388-c2c03d from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1790009388-c2c03d: waiting 48s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790009388-c2c03d: top suspects ['checkoutservice', 'productcatalogservice', 'frontend']
+INFO incident 1790009748-2b8602 from rca-sim error rate by service (service:paymentservice)
+INFO incident 1790009748-2b8602: waiting 51s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790009748-2b8602: top suspects ['checkoutservice', 'paymentservice', 'frontend']
+INFO incident 1790010587-3976aa from rca-sim latency by service (service:frontend)
+INFO dropped 0 sparse and 24 constant columns
+INFO incident 1790010587-3976aa: top suspects ['frontend', 'checkoutservice', 'recommendationservice']
+INFO incident 1790011428-94f9b1 from rca-sim error rate by service (service:paymentservice)
+INFO incident 1790011428-94f9b1: waiting 54s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790011428-94f9b1: top suspects ['checkoutservice', 'currencyservice', 'frontend']
+INFO incident 1790012208-ec0848 from rca-sim error rate by service (service:checkoutservice)
+INFO incident 1790012208-ec0848: waiting 51s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790012208-ec0848: top suspects ['checkoutservice', 'paymentservice', 'recommendationservice']
+INFO incident 1790013290-7de0b4 from rca-sim cpu saturation (kube_deployment:recommendationservice)
+INFO incident 1790013290-7de0b4: waiting 49s for the post window
+INFO dropped 0 sparse and 21 constant columns
+INFO incident 1790013290-7de0b4: top suspects ['recommendationservice', 'frontend', 'paymentservice']
