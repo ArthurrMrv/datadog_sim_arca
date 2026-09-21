@@ -116,6 +116,13 @@ def _fill_absent_with_zero(
             if name not in columns:
                 columns[name] = pd.Series(0.0, index=times, dtype=float)
                 added.append(name)
+            elif columns[name].isna().any():
+                # A gap in a counter is an interval with no matching events, which is zero, not a
+                # missing observation. Errors are rare enough that the series exists but is mostly
+                # holes -- and a column past `max_nan_fraction` is dropped as too sparse, so the
+                # error signal disappeared exactly on the intermittent faults it is evidence for.
+                columns[name] = columns[name].fillna(0.0)
+                added.append(name)
     return added
 
 

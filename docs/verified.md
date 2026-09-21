@@ -227,6 +227,20 @@ component names (`kube-apiserver`, `kube-proxy`, ...) — nothing to do with OTe
 container families group by `kube_deployment` and the span families by `service`; they must not be
 mixed up.
 
+## Error-span rate — measured on the live cluster, 2026-09-21
+
+Over two hours of healthy baseline, `traces.span.metrics.calls{env:rca-sim,span.kind:span_kind_server}`
+split by `status.code` gives **884 `status_code_unset` against 3 `status_code_error`**. So the error
+filter is correct and does match — the family reads "no data" in `make status` only because a 10-minute
+freshness window contains no error span at all. A ~0.3% baseline error ratio also confirms the
+calibrated 1% monitor threshold sits above the noise.
+
+That measurement exposed a gap in `absent_means_zero`: it filled only families that returned *no series
+at all*. At this rate the series usually exists but is mostly holes, `.as_rate()` returns null for an
+empty bucket, and a column past `max_nan_fraction` is dropped as too sparse — so the error signal
+disappeared on exactly the intermittent faults it is evidence for. Gaps inside such a family are now
+filled with zero too.
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of
