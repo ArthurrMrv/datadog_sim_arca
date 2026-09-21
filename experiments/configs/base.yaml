@@ -12,17 +12,31 @@ duration_seconds: 300        # how long each fault stays active
 cooldown_seconds: 720
 incident_timeout_seconds: 420  # give up waiting for an alert after this: that is a missed detection
 match_slack_seconds: 120     # how far the estimated anomaly time may sit from the injection
-# 17 min per injection (300s fault + 720s cooldown). 1 repetition over 5 faults x 4 services is
-# 20 injections, about 5.7 h -- an overnight run. Raise it once the loop is proven: 3 repetitions is
-# 60 injections and 17 h. `--dry-run` prints the estimate for whatever you set here.
+# 17 min per injection (300s fault + 720s cooldown). 1 repetition over 5 faults x 5 services is
+# 25 injections, about 7.1 h -- an overnight run. Raise it once the loop is proven: 3 repetitions is
+# 75 injections and 21 h. `--dry-run` prints the estimate for whatever you set here.
 repetitions: 1
 
 faults: [cpu, mem, delay, loss, kill]
 
-# Targets spread across the call graph: a leaf, a middle service, the entry point, and a datastore
+# Targets spread across the call graph: a leaf, a fan-out hub, the entry point, and a datastore
 # client. A fault at the entry point has almost no downstream, which is the easy case; a fault deep in
 # the graph is where a symptom-based ranking goes wrong.
-services: [cartservice, productcatalogservice, recommendationservice, frontend]
+#
+# checkoutservice is the fan-out hub -- it calls five services, so a fault there propagates further
+# than anywhere else in the graph, which is the case PRISM's component-property model exists for.
+#
+# cartservice is kept deliberately as a NEGATIVE CONTROL, not as a fair target. Spanmetrics has never
+# carried a span for it (nor adservice, shippingservice, redis-cart, loadgenerator -- checked over 24h
+# of `traces.span.metrics.calls` tag values, docs/verified.md): the demo's C#, Java and Go leaf
+# services ignore ENABLE_TRACING. So cartservice has internal properties only, and PRISM's central
+# discriminator -- root cause anomalous internally AND externally, victims only externally -- has
+# nothing to work with. A smoke run injected cpu into it, drove its CPU 23x (5.98 sigma, the largest
+# move in the window), and PRISM still ranked it 5th behind paymentservice. Scoring those five
+# injections alongside twenty instrumented ones measures how the method degrades when a component's
+# external telemetry is missing, which is a production condition the offline benchmark never has.
+# Read the per-service breakdown, not just the overall AC@k, for exactly this reason.
+services: [cartservice, checkoutservice, productcatalogservice, recommendationservice, frontend]
 
 # Deliberate quiet periods. Without them, false alarms cannot be measured at all: a campaign that only
 # ever runs under a fault has no idea how often the detector fires on nothing.

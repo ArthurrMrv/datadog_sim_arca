@@ -108,6 +108,14 @@ on a cluster that is still being injected into calibrates the thresholds above t
 A config carrying `scorable: false` (`smoke.yaml`) is exempt from the campaign pacing invariant and
 is never scored: an AC@k off a smoke run would look exactly like a result.
 
+**Five of the twelve services emit no external properties** — `cartservice`, `adservice`,
+`shippingservice`, `redis-cart`, `loadgenerator` have never produced a span, because the demo's C#,
+Java and Go leaves ignore `ENABLE_TRACING` (`docs/verified.md`). PRISM's discriminator needs both
+classes, so those components rank low however large their CPU or memory anomaly is — measured, not
+assumed: a cpu fault drove `cartservice_cpu` 23x and PRISM still ranked it 5th. `base.yaml` keeps
+cartservice as a declared negative control, which is why scores are reported per service as well as
+per fault type. Read that breakdown before the overall AC@k.
+
 ## Conventions
 
 - Python >= 3.11, type hints on public functions. Nothing beyond FastAPI, pandas and the Datadog

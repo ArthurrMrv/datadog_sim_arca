@@ -149,7 +149,12 @@ def to_markdown(result: dict) -> str:
         "| group | n | AC@1 | AC@3 | AC@5 | Avg@5 | detect (s) | diagnose (s) |",
         "|---|---|---|---|---|---|---|---|",
     ]
-    for name, group in [("overall", overall), *sorted(result["per_fault_type"].items())]:
+    groups = [
+        ("overall", overall),
+        *sorted(result["per_fault_type"].items()),
+        *((f"service: {name}", g) for name, g in sorted(result.get("per_service", {}).items())),
+    ]
+    for name, group in groups:
         detect = (group["time_to_detect_s"] or {}).get("mean", "-")
         diagnose = (group["time_to_diagnosis_s"] or {}).get("mean", "-")
         lines.append(
