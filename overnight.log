@@ -1,0 +1,153 @@
+nohup: ignoring input
+infra/scripts/overnight.sh
+
+=== 11:01:54Z  checking every metric family is arriving before committing to the night
+site=us5.datadoghq.com  api_key=32 chars  token=65 chars
+
+cpu            9s ago
+mem            9s ago
+latency_avg    24s ago
+error_rate     no data
+workload       24s ago
+restarts       14s ago
+
+=== 11:01:56Z  CALIBRATE=0: keeping the thresholds already in monitors.yaml
+
+=== 11:01:56Z  applying monitors, webhook and dashboard
+no --url given: monitors will notify a webhook that does not exist yet.
+The poller (make rca MODE=poll) works without it (D16).
+monitor 22609607: rca-sim latency by service
+monitor 22609608: rca-sim error rate by service
+monitor 22609609: rca-sim container restarts
+monitor 22609610: rca-sim cpu saturation
+monitor 22609611: rca-sim memory saturation
+dashboard updated: rca-sim
+  RCA_DASHBOARD_ID=n7i-hyi-qyr
+
+=== 11:01:58Z  letting monitors settle 300s
+
+=== 11:06:58Z  starting the RCA service (poller: no tunnel needed)
+
+=== 11:07:08Z  campaign: experiments/configs/base.yaml
+25 injections + 4 fault-free periods = 7.8 h of wall clock at 17 min each
+[1/25] cpu -> frontend
+injected cpu-frontend-e38e83ae at t_start=1789988828 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789989128; cooling down 720s
+   detected
+[2/25] kill -> frontend
+injected kill-frontend-edb2b058 at t_start=1789989849 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789990149; cooling down 720s
+   detected
+[3/25] mem -> recommendationservice
+injected mem-recommendationservice-66d0cf75 at t_start=1789991219 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789991519; cooling down 720s
+   detected
+[4/25] mem -> frontend
+injected mem-frontend-eebed1c0 at t_start=1789992410 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789992710; cooling down 720s
+   no alert (missed detection)
+[5/25] mem -> cartservice
+injected mem-cartservice-55d84bac at t_start=1789993850 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789994150; cooling down 720s
+   detected
+[6/25] cpu -> productcatalogservice
+injected cpu-productcatalogservice-39c555c2 at t_start=1789994870 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789995170; cooling down 720s
+   detected
+   fault-free period: 600s
+[7/25] loss -> productcatalogservice
+   INJECTION FAILED: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" denied the request: json: cannot unmarshal number into Go struct field LossSpec.spec.loss.loss of type string
+[8/25] cpu -> checkoutservice
+injected cpu-checkoutservice-8e2bd294 at t_start=1789996491 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789996791; cooling down 720s
+   detected
+[9/25] delay -> recommendationservice
+injected delay-recommendationservice-c6dda3d6 at t_start=1789997512 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789997812; cooling down 720s
+   detected
+[10/25] loss -> checkoutservice
+   INJECTION FAILED: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" denied the request: json: cannot unmarshal number into Go struct field LossSpec.spec.loss.loss of type string
+[11/25] mem -> checkoutservice
+injected mem-checkoutservice-1da7396f at t_start=1789998532 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1789998832; cooling down 720s
+   no alert (missed detection)
+[12/25] kill -> cartservice
+injected kill-cartservice-4cf85966 at t_start=1789999973 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790000273; cooling down 720s
+   detected
+   fault-free period: 600s
+[13/25] delay -> frontend
+injected delay-frontend-c3dce8c8 at t_start=1790001593 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790001893; cooling down 720s
+   detected
+[14/25] loss -> recommendationservice
+   INJECTION FAILED: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" denied the request: json: cannot unmarshal number into Go struct field LossSpec.spec.loss.loss of type string
+[15/25] delay -> productcatalogservice
+injected delay-productcatalogservice-865d5ddf at t_start=1790002614 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790002914; cooling down 720s
+   detected
+[16/25] mem -> productcatalogservice
+injected mem-productcatalogservice-9a0c8383 at t_start=1790003874 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790004174; cooling down 720s
+   no alert (missed detection)
+[17/25] loss -> cartservice
+   INJECTION FAILED: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" denied the request: json: cannot unmarshal number into Go struct field LossSpec.spec.loss.loss of type string
+[18/25] kill -> recommendationservice
+injected kill-recommendationservice-b7ba8a25 at t_start=1790005315 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790005615; cooling down 720s
+   detected
+   fault-free period: 600s
+[19/25] kill -> checkoutservice
+injected kill-checkoutservice-fa4e00e0 at t_start=1790006935 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790007235; cooling down 720s
+   no alert (missed detection)
+[20/25] kill -> productcatalogservice
+injected kill-productcatalogservice-586d78c3 at t_start=1790008376 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790008676; cooling down 720s
+   detected
+[21/25] delay -> checkoutservice
+injected delay-checkoutservice-f258646e at t_start=1790009516 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790009816; cooling down 720s
+   detected
+[22/25] loss -> frontend
+   INJECTION FAILED: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" denied the request: json: cannot unmarshal number into Go struct field LossSpec.spec.loss.loss of type string
+[23/25] delay -> cartservice
+injected delay-cartservice-869a3891 at t_start=1790010537 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790010837; cooling down 720s
+   detected
+[24/25] cpu -> cartservice
+injected cpu-cartservice-a809ef1a at t_start=1790011558 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790011858; cooling down 720s
+   detected
+   fault-free period: 600s
+[25/25] cpu -> recommendationservice
+injected cpu-recommendationservice-936857d8 at t_start=1790013178 (logged to /home/ec2-user/datadog_sim_arca/results/ground_truth.jsonl)
+fault ended at 1790013478; cooling down 720s
+   detected
+
+5 injections never ran:
+  loss -> productcatalogservice: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" d
+  loss -> checkoutservice: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" d
+  loss -> recommendationservice: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" d
+  loss -> cartservice: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" d
+  loss -> frontend: kubectl apply -f - failed (1): Error from server: error when creating "STDIN": admission webhook "mnetworkchaos.kb.io" d
+# Live evaluation
+
+21 faults, 11 detected, 10 missed, 14 false alarms.
+
+| group | n | AC@1 | AC@3 | AC@5 | Avg@5 | detect (s) | diagnose (s) |
+|---|---|---|---|---|---|---|---|
+| overall | 21 | 0.2857 | 0.381 | 0.4762 | 0.3619 | 92.5 | 215.3 |
+| cpu | 6 | 0.6667 | 0.6667 | 0.8333 | 0.7 | 115.4 | 237 |
+| delay | 5 | 0.4 | 0.4 | 0.4 | 0.4 | 112 | 237.3 |
+| kill | 5 | 0.0 | 0.2 | 0.4 | 0.16 | 23.5 | 145.5 |
+| mem | 5 | 0.0 | 0.2 | 0.2 | 0.12 | 58 | 180 |
+| service: cartservice | 5 | 0.0 | 0.4 | 0.6 | 0.28 | 71.8 | 196.2 |
+| service: checkoutservice | 4 | 0.5 | 0.5 | 0.5 | 0.5 | 175.5 | 297 |
+| service: frontend | 4 | 0.5 | 0.5 | 0.5 | 0.5 | 78 | 200.5 |
+| service: productcatalogservice | 4 | 0.25 | 0.25 | 0.5 | 0.3 | 56 | 177.5 |
+| service: recommendationservice | 4 | 0.25 | 0.25 | 0.25 | 0.25 | 112 | 233 |
+
+-> /home/ec2-user/datadog_sim_arca/results/eval/1790014198
+
+=== 18:09:58Z  done. reports in results/incidents/, scores in results/eval/
