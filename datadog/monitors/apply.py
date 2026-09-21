@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -122,6 +123,10 @@ def apply_monitors(client, spec: dict) -> dict[str, int]:
             tags=list(spec["tags"]),
             options=options,
         )
+        # Datadog validates more than the query parses: thresholds must agree with the
+        # comparison in the query, for one. Checking first means a bad definition fails before
+        # any monitor is created, rather than halfway through the set.
+        api.validate_monitor(Monitor(**body))
         if definition["name"] in existing:
             monitor_id = existing[definition["name"]]
             api.update_monitor(monitor_id, MonitorUpdateRequest(**body))
@@ -237,19 +242,31 @@ def calibrate(args) -> int:
 
 
 def _write_thresholds(suggested: dict[str, float]) -> None:
-    """Rewrite just the `thresholds:` line of the calibrated monitors, comments intact.
+    """Rewrite a calibrated monitor's threshold, in BOTH places it appears.
 
-    Edited line by line rather than via yaml.dump, which would strip every comment in the file --
-    and the comments are why a threshold change is reviewable.
+    Datadog rejects a monitor whose `options.thresholds.critical` differs from the comparison at
+    the end of its query -- "Alert threshold (0.05) does not match that used in the query (0.5)" --
+    so the two must move together. Writing only the thresholds line left the file in a state that
+    could never be applied, and it surfaced an hour later at monitor-creation time.
+
+    Edited line by line rather than via yaml.dump, which would strip every comment in the file, and
+    the comments are what make a threshold change reviewable.
     """
+    # The trailing group allows the closing quote of a one-line query: without it the anchor never
+    # matched a quoted query and only the thresholds line moved -- which is the original bug.
+    comparison = re.compile(r"(>\s*)\d+(?:\.\d+)?(\s*\"?\s*)$")
     lines = DEFINITIONS.read_text().splitlines()
     current = None
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith("id_key:"):
+        if stripped.startswith("- name:"):
+            current = None  # a new monitor block begins before its id_key is seen
+        elif stripped.startswith("id_key:"):
             current = stripped.split(":", 1)[1].strip()
-        elif stripped.startswith("thresholds:") and current in suggested:
-            critical = suggested[current]
+        if current not in suggested:
+            continue
+        critical = suggested[current]
+        if stripped.startswith("thresholds:"):
             indent = line[: len(line) - len(line.lstrip())]
             lines[i] = (
                 f"{indent}thresholds: {{critical: {critical}, "
@@ -257,6 +274,12 @@ def _write_thresholds(suggested: dict[str, float]) -> None:
                 f"critical_recovery: {round(critical * 0.5, 4)}}}"
             )
             print(f"wrote {current}: critical={critical}")
+        else:
+            # The comparison lives on the query's last line, folded or not. `query: >-` ends
+            # in `>-`, not a number, so the indicator is never mistaken for a comparison.
+            updated = comparison.sub(rf"\g<1>{critical}\g<2>", line)
+            if updated != line:
+                lines[i] = updated
     DEFINITIONS.write_text("\n".join(lines) + "\n")
 
 

@@ -16,7 +16,7 @@ monitors:
   - name: "rca-sim latency by service"
     id_key: latency
     type: metric alert
-    query: "avg(last_1m):avg:traces.span.metrics.duration{env:rca-sim,span.kind:span_kind_server} by {service} > 0.5"
+    query: "avg(last_1m):avg:traces.span.metrics.duration{env:rca-sim,span.kind:span_kind_server} by {service} > 0.05"
     message: "Mean latency on {{service.name}} is {{value}}s."
     thresholds: {critical: 0.05, warning: 0.03, critical_recovery: 0.025}
 
@@ -25,7 +25,7 @@ monitors:
     type: metric alert
     query: >-
       sum(last_1m):sum:traces.span.metrics.calls{env:rca-sim,status.code:status_code_error,span.kind:span_kind_server} by {service}.as_count()
-      / sum:traces.span.metrics.calls{env:rca-sim,span.kind:span_kind_server} by {service}.as_count() > 0.05
+      / sum:traces.span.metrics.calls{env:rca-sim,span.kind:span_kind_server} by {service}.as_count() > 0.01
     message: "Error ratio on {{service.name}} is {{value}}."
     thresholds: {critical: 0.01, warning: 0.006, critical_recovery: 0.005}
 
