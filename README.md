@@ -4,68 +4,6 @@
   <img src="img/infra.png" alt="Online Boutique on kind, faulted by Chaos Mesh, observed by Datadog, ranked by PRISM, scored against ground truth" width="100%">
 </p>
 
-<details>
-<summary>TikZ source for the diagram above</summary>
-
-```latex
-\scalebox{0.80}{\begin{tikzpicture}[node distance=6mm]
-
-% ---- cluster -----------------------------------------------------------
-  \node[box=cInfra, minimum width=26mm] (app)
-       {\textbf{Online Boutique}\\11 services, Kubernetes};
-  \node[box=cInfra, left=8mm of app, minimum width=14mm] (load)
-       {load generator\\steady RPS};
-  \node[box=cRoot, below=8mm of load, minimum width=14mm] (chaos)
-       {\textbf{Chaos Mesh}\\cpu, mem, disk,\\delay, loss, kill};
-  \node[box=cData, right=8mm of app, minimum width=20mm] (otel)
-       {OTel Collector\\\texttt{spanmetrics}};
-  \node[box=cData, below=8mm of otel, minimum width=20mm] (agent)
-       {Datadog Agent\\5\,s collection};
-
-  \begin{scope}[on background layer]
-    \node[draw=cInfra!40, fill=cBg, rounded corners=3pt,
-          fit=(load)(app)(otel)(agent)(chaos), inner sep=5pt] (cluster) {};
-  \end{scope}
-  \node[font=\tiny, text=cInfra, anchor=south west] at ($(cluster.north west)+(0,0.5mm)$)
-       {kind cluster (1 node = 1 Datadog host)};
-
-  \draw[flow] (load) -- (app);
-  \draw[dflow] (app) -- node[above, font=\tiny, text=cData] {OTLP} (otel);
-  \draw[dflow] (otel) -- (agent);
-  \draw[dflow] (app.south) |- node[pos=0.75, above, font=\tiny, text=cData] {kubelet} (agent.west);
-  \draw[rflow] (chaos) -- node[right, font=\tiny, text=cRoot, pos=0.4] {inject} (app);
-
-% ---- datadog -----------------------------------------------------------
-  \node[box=cData, right=13mm of cluster.east, anchor=west, minimum width=24mm] (dd)
-       {\textbf{Datadog}\\metrics, dashboards\\monitors: 1-min threshold,\\multi-alert by service};
-  \draw[dflow] (agent.east) -- ++(4mm,0) |- (dd.west);
-
-% ---- rca service -------------------------------------------------------
-  \node[box=cAgent, right=11mm of dd, minimum width=30mm] (svc)
-       {\textbf{rca-service} (FastAPI)\\
-        1. dedupe triggered alerts\\
-        2. compute windows, wait\\
-        3. Datadog API $\rightarrow$ adapter\\
-        4. \textbf{PRISM} ranking\\
-        5. report + LLM summary};
-  \draw[rflow] (dd) -- node[above, font=\tiny, text=cRoot, pos=0.5] {alert}
-                      node[below, font=\tiny, text=cGrey, pos=0.5] {webhook} (svc);
-  \draw[dflow] (svc.north) -- ++(0,4mm) -| node[pos=0.25, above, font=\tiny, text=cData]
-                                             {query window} (dd.north);
-
-% ---- ground truth / scoring -------------------------------------------
-  \node[box=cGrey, below=11mm of svc, minimum width=30mm] (score)
-       {\textbf{scoring}: AC@$k$, Avg@5,\\time to detect, time to diagnose,\\
-        estimated vs.\ true anomaly time};
-  \draw[flow] (svc) -- (score);
-  \draw[rflow] (chaos.south) |- node[pos=0.72, above, font=\tiny, text=cRoot]
-                                {ground truth (JSONL)} (score.west);
-
-\end{tikzpicture}}
-```
-
-</details>
-
 Online Boutique runs on a local `kind` cluster under steady load. Datadog collects its metrics. Chaos
 Mesh injects faults on demand. A Datadog monitor detects the incident. PRISM then ranks the root cause
 from the window Datadog itself provides.
