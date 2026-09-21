@@ -30,6 +30,11 @@ from app.config import load_settings
 from app.evaluation import load_ground_truth, match, score, unmatched
 from app.store import Store
 
+# How many injections may fail back to back before the campaign gives up. One rejected fault
+# type is a gap in the experiment; three in a row means the cluster, and the remaining hours
+# would only produce an empty results directory.
+MAX_CONSECUTIVE_FAILURES = 3
+
 
 def load_incidents(store: Store) -> list[dict]:
     reports = []
@@ -71,6 +76,7 @@ def run_campaign(config: dict, settings, dry_run: bool = False) -> None:
     print(f"{len(plan)} injections + {quiet} fault-free periods "
           f"= {hours:.1f} h of wall clock at {per // 60} min each")
     failures: list[tuple[str, str, str]] = []
+    consecutive = 0
     for index, (fault, service) in enumerate(plan, start=1):
         print(f"[{index}/{len(plan)}] {fault} -> {service}")
         if dry_run:
@@ -86,7 +92,14 @@ def run_campaign(config: dict, settings, dry_run: bool = False) -> None:
             # happened must not be mistaken later for one that happened and went undetected.
             print(f"   INJECTION FAILED: {exc}")
             failures.append((fault, service, str(exc)))
+            consecutive += 1
+            if consecutive >= MAX_CONSECUTIVE_FAILURES:
+                # One rejected fault type is a gap; three in a row is the cluster, and sitting
+                # out the remaining hours would produce nothing but an empty results directory.
+                print(f"   {consecutive} injections failed in a row -- stopping the campaign")
+                break
             continue
+        consecutive = 0
         report = wait_for_incident(store, started, config["incident_timeout_seconds"])
         print("   detected" if report else "   no alert (missed detection)")
 

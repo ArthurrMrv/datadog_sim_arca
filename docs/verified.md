@@ -81,7 +81,7 @@ alerted on.
 | Every container **already has requests and limits**, tuned per runtime: 128Mi for the Go services, 300Mi for `adservice` (JVM), 450Mi for `recommendationservice` (Python), 512Mi for `loadgenerator` | Phase 1.3's uniform-resource patch was **removed**: flattening everything to 256Mi OOM-kills those two on startup. Upstream totals are 1570m / 1368Mi requested, 2825m / 2542Mi limited |
 | A `frontend-external` Service **already exists**, as type `LoadBalancer` | Listing one under `resources` is a kustomize duplicate-id error that stops `make up` at its first step, so `frontend-nodeport.yaml` is a **patch**, not a resource. The patch is still needed: kind has no load balancer, so as `LoadBalancer` it sits Pending and `localhost:8080` never answers. `NodePort` 30080 is the port `kind-config.yaml` maps; `targetPort` and the port name are inherited, since the strategic merge keys ports on `port` |
 | `kustomize build infra/online-boutique` renders 36 objects | Verified: all in namespace `shop`, all labelled `env:rca-sim`, tracing env on the 10 instrumented services only, `loadgenerator` at USERS=10/RATE=5, upstream memory limits intact |
-| Most services cap at 128Mi | The `mem` fault default dropped from 220Mi to 100Mi. 220Mi against a 128Mi limit is an instant OOM kill, which is the `kill` fault, not memory pressure |
+| Most services cap at 128Mi | The `mem` fault default dropped from 220Mi to 100MB. 220Mi against a 128Mi limit is an instant OOM kill, which is the `kill` fault, not memory pressure |
 
 ## Datadog credentials — read from the API spec, 2026-09-20
 
@@ -240,6 +240,33 @@ at all*. At this rate the series usually exists but is mostly holes, `.as_rate()
 empty bucket, and a column past `max_nan_fraction` is dropped as too sparse — so the error signal
 disappeared on exactly the intermittent faults it is evidence for. Gaps inside such a family are now
 filled with zero too.
+
+## StressChaos memory `size` — rejected by the live cluster, 2026-09-21
+
+The first campaign died on `[1/20] mem -> productcatalogservice` with nothing but "returned non-zero
+exit status 1". Rendering the manifest and applying it with `--dry-run=server` gave the real answer:
+
+```
+admission webhook "vstresschaos.kb.io" denied the request:
+Spec.Stressors.MemoryStressor.Size: Invalid value: "100Mi": incorrect bytes format:
+  invalid suffix: 'mi'
+```
+
+| Fact | Evidence |
+|---|---|
+| `size` is a plain `type: string` in the CRD, so nothing is caught at schema validation — the rejection comes from the admission webhook | `helm/chaos-mesh/crds/chaos-mesh.org_stresschaos.yaml`, `stressors.memory.size` |
+| The webhook validates it with `units.FromHumanSize`, the **decimal** parser (`RAMInBytes` is the binary one) | `api/v1alpha1/stresschaos_webhook.go`, `Bytes.Validate` |
+| That parser has no binary suffixes: `Mi` is read as the suffix `mi` and rejected | the error above |
+| A percentage (`"50%"`) takes a different branch and is also legal | same function, `size[length-1] == '%'` |
+| `workers` must be > 0; the CRD caps it at 8192 | same file, `Stressor.Validate`; CRD `workers` |
+
+The default is now `100MB` — decimal, so 100,000,000 bytes ≈ 95.4 MiB against the 128Mi limit, which
+is the pressure that was intended. Reading the parser's regex was **not** enough to settle this: it
+appeared to admit an optional `i`, and the live webhook disagreed. Kubernetes quantities (`100Mi`)
+and Chaos Mesh byte strings (`100MB`) look alike and are not the same grammar.
+
+`chaos/inject.py` now prints kubectl's own message instead of an exit status, which is the only
+reason this took one command rather than another campaign.
 
 ## OPEN — needs the running cluster
 
