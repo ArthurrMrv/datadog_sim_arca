@@ -123,6 +123,10 @@ make inject FAULT=delay SERVICE=cartservice DURATION=300
 cat results/incidents/*/report.md
 ```
 
+`results/analysis.ipynb` reads whatever is in `results/` and plots what happened: detection latency
+per fault type, AC@k against ground truth, the anatomy of a single incident, and how far the estimated
+anomaly time fell from the real one. It runs before a campaign too, and says what is missing.
+
 Then `make eval` runs a full campaign (~3.5 h at `repetitions: 1`, ~10.7 h as configured) and
 `make sweep` re-ranks every stored incident at 1s / 5s / 15s. `make down` deletes the cluster;
 `results/` survives. `make help` lists every target.
