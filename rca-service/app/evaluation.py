@@ -106,12 +106,23 @@ def _case(fault: Fault, incident: dict | None) -> Case:
 
 
 def score(cases: list[Case], false_alarms: list[str] | None = None) -> dict:
-    """AC@k, Avg@5, detection and diagnosis latency — overall and per fault type."""
+    """AC@k, Avg@5, detection and diagnosis latency — overall, per fault type and per service.
+
+    Per service is not symmetry with per fault type: it is the only way to see a target whose
+    telemetry is incomplete. Five of the demo's services emit no external properties at all
+    (docs/verified.md), so PRISM's internal-and-external discriminator cannot fire for them and they
+    rank low no matter how large their internal anomaly is. Averaged in, that reads as the method
+    failing; split out, it reads as the measurement it actually is.
+    """
     return {
         "overall": _score_group(cases) | {"false_alarms": len(false_alarms or [])},
         "per_fault_type": {
             fault_type: _score_group([c for c in cases if c.fault.fault_type == fault_type])
             for fault_type in sorted({c.fault.fault_type for c in cases})
+        },
+        "per_service": {
+            service: _score_group([c for c in cases if c.fault.target_service == service])
+            for service in sorted({c.fault.target_service for c in cases})
         },
         "false_alarm_incidents": list(false_alarms or []),
     }

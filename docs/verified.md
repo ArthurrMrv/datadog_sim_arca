@@ -268,6 +268,38 @@ and Chaos Mesh byte strings (`100MB`) look alike and are not the same grammar.
 `chaos/inject.py` now prints kubectl's own message instead of an exit status, which is the only
 reason this took one command rather than another campaign.
 
+## Which services are instrumented — Datadog tag values over 24h, 2026-09-21
+
+**V2 fully closed.** The earlier note closed it on "spans arrive", which is only half the item. The
+service names `traces.span.metrics.calls` has ever carried:
+
+| Emits spans (7) | Never emitted a span (5) |
+|---|---|
+| frontend, checkoutservice, currencyservice, emailservice, paymentservice, productcatalogservice, recommendationservice | cartservice, adservice, shippingservice, redis-cart, loadgenerator |
+
+`redis-cart` and `loadgenerator` are expected — neither is instrumented and the kustomization says
+so. The other three are not: the tracing patch targets `(frontend|.*service)`, so `cartservice` (C#),
+`adservice` (Java) and `shippingservice` (Go) *are* given `ENABLE_TRACING` and
+`COLLECTOR_SERVICE_ADDR`, and ignore them. The demo only honours those variables in some of its
+runtimes.
+
+**Consequence, and it is not cosmetic.** Those five services have internal properties (`cpu`, `mem`)
+and no external ones, so PRISM's central discriminator — a root cause is anomalous internally *and*
+externally, a victim only externally — has nothing to work with. A smoke run injected cpu into
+cartservice, drove `cartservice_cpu` from 18.2M to 415M (23x, 5.98 sigma, the largest move in the
+window), and PRISM ranked it **5th**, behind paymentservice on 17.99 sigma of CPU. That is the model
+behaving as designed on incomplete input, not a bug.
+
+`base.yaml` keeps cartservice as a declared negative control and adds checkoutservice so twenty of
+the twenty-five injections are cleanly scorable. Read the per-service breakdown before the overall
+AC@k.
+
+Also visible in the same tag values: stale `unknown_service`, `unknown_service:server` and
+`unknown_service:checkoutservice` series from before the `OTEL_SERVICE_NAME` fix. They are inside the
+24h lookback but no longer being written — the smoke run's component list contains none of them.
+They will age out; a campaign window that reaches back past the fix would pick them up as phantom
+components.
+
 ## OPEN — needs the running cluster
 
 `make status` prints the age of the newest point per family; a family reading "no data" is how each of
@@ -276,7 +308,6 @@ these shows up.
 | # | Item | Where |
 |---|---|---|
 | V1 | Datadog site and whether APM/Logs are on the student plan; custom metric allowance vs the series spanmetrics actually creates | `.env`, Phase 3 |
-| V2 | Online Boutique tracing env vars in release v0.10.2 (`ENABLE_TRACING`, `COLLECTOR_SERVICE_ADDR`) and which services are instrumented | `infra/online-boutique/kustomization.yaml` |
 | V3b | That `kube_deployment` and `kube_namespace` are actually present on the container metrics above | `app/adapter/queries.yaml` |
 | V4 | That the Helm keys used really apply 5s collection for the pinned chart version, confirmed in the Metrics Explorer | `infra/datadog/values.yaml` |
 | V5b | That Datadog lowercases the OTel tag values, so `span.kind:server` and `status.code:error` match | `app/adapter/queries.yaml` |
