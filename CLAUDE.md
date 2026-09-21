@@ -97,6 +97,17 @@ After `make up`, run `make status`: it prints the age of the newest point per me
 reading "no data" means a query in `queries.yaml` does not match what the cluster actually emits, and
 that is the failure mode to catch before a campaign, not during one.
 
+Then run `make smoke` before `make overnight`. It is the same script end to end on one short
+injection with the waits removed (~6 min), because the expensive failures here are not wrong answers
+but a loop that never ran: a rejected manifest, a monitor that does not fire, a poller that dies.
+Six hours is a bad time to find out. `make overnight`'s own waits are environment variables
+(`SETTLE_SECONDS`, `MONITOR_SETTLE_SECONDS`, `CALIBRATE`) rather than constants for the same reason
+— but the 3600s settle is not a warm-up, it is the hour `calibrate --hours 1` reads, so zeroing it
+on a cluster that is still being injected into calibrates the thresholds above the faults.
+
+A config carrying `scorable: false` (`smoke.yaml`) is exempt from the campaign pacing invariant and
+is never scored: an AC@k off a smoke run would look exactly like a result.
+
 ## Conventions
 
 - Python >= 3.11, type hints on public functions. Nothing beyond FastAPI, pandas and the Datadog

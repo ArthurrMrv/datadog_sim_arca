@@ -1,0 +1,26 @@
+# A plumbing check, not an experiment.
+#
+# Proves the whole loop runs end to end -- inject -> monitor fires -> poller pulls the window ->
+# adapter builds the frame -> PRISM ranks it -> report on disk -- in about five minutes instead of
+# six hours. Run it before committing a night to a cluster you have just rebuilt.
+#
+# `scorable: false` because the pacing here is deliberately wrong: cooldown is shorter than the 600s
+# baseline window, so a second injection's reference period would contain the first fault. With one
+# injection there is no second, but the flag keeps anyone from reading AC@k off a smoke run and
+# exempts this file from the pacing invariant in tests/test_evaluation.py.
+scorable: false
+
+duration_seconds: 120          # long enough for a 1-min threshold monitor to trip
+cooldown_seconds: 60
+incident_timeout_seconds: 300  # trigger + evaluation delay + the poller's own interval
+match_slack_seconds: 120
+repetitions: 1
+
+# One fault on one service: this is asking "does anything work at all", not "which method wins".
+# cpu on cartservice is the loudest combination -- it saturates fast and cartservice sits deep
+# enough in the call graph to move latency downstream.
+faults: [cpu]
+services: [cartservice]
+
+fault_free_periods: 0
+fault_free_seconds: 0

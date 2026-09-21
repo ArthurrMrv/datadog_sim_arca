@@ -174,6 +174,12 @@ def main(argv: list[str] | None = None) -> int:
         run_campaign(config, settings, dry_run=args.dry_run)
     if args.dry_run:
         return 0
+    if not config.get("scorable", True):
+        # Scoring an unscorable config would produce an AC@k that looks like a result and is not
+        # one. The reports are still on disk; only the numbers derived from them are withheld.
+        print("\nconfig declares scorable: false -- plumbing check only, no scores computed.")
+        print(f"reports: {settings.incidents_dir}")
+        return 0
     result = score_campaign(config, settings)
     print(to_markdown(result))
     print(f"-> {write_results(result, settings)}")
