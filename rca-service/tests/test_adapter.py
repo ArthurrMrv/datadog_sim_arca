@@ -165,7 +165,7 @@ def test_sparse_error_counts_fill_their_gaps(query_config):
         RawSeries("error_rate", "cartservice", ((1050, 2.0), (1075, 3.0))),
     ]
 
-    frame, meta = to_frame(series, 1000, 1095, STEP, cfg)
+    frame, _ = to_frame(series, 1000, 1095, STEP, cfg)
 
     assert "cartservice_error_rate" in frame.columns, "sparse error column was dropped"
     assert not frame["cartservice_error_rate"].isna().any()

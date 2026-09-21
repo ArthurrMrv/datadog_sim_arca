@@ -70,20 +70,34 @@ def run_campaign(config: dict, settings, dry_run: bool = False) -> None:
     hours = (len(plan) * per + quiet * config.get("fault_free_seconds", 0)) / 3600
     print(f"{len(plan)} injections + {quiet} fault-free periods "
           f"= {hours:.1f} h of wall clock at {per // 60} min each")
+    failures: list[tuple[str, str, str]] = []
     for index, (fault, service) in enumerate(plan, start=1):
         print(f"[{index}/{len(plan)}] {fault} -> {service}")
         if dry_run:
             continue
         started = int(time.time())
-        chaos.inject(
-            fault, service, config["duration_seconds"], cooldown=config["cooldown_seconds"]
-        )
+        try:
+            chaos.inject(
+                fault, service, config["duration_seconds"], cooldown=config["cooldown_seconds"]
+            )
+        except Exception as exc:
+            # A fault type the cluster rejects is a gap in the experiment, not a reason to abandon
+            # the other nineteen. It is recorded rather than swallowed: an injection that never
+            # happened must not be mistaken later for one that happened and went undetected.
+            print(f"   INJECTION FAILED: {exc}")
+            failures.append((fault, service, str(exc)))
+            continue
         report = wait_for_incident(store, started, config["incident_timeout_seconds"])
         print("   detected" if report else "   no alert (missed detection)")
 
         if quiet and index % max(1, len(plan) // max(quiet, 1)) == 0:
             print(f"   fault-free period: {config['fault_free_seconds']}s")
             time.sleep(config["fault_free_seconds"])
+
+    if failures:
+        print(f"\n{len(failures)} injections never ran:")
+        for fault, service, reason in failures:
+            print(f"  {fault} -> {service}: {reason.splitlines()[0][:120]}")
 
 
 def score_campaign(config: dict, settings) -> dict:

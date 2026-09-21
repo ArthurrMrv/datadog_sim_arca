@@ -71,9 +71,19 @@ def render(
 
 
 def kubectl(*args: str, stdin: str | None = None) -> str:
-    return subprocess.run(
-        ["kubectl", *args], input=stdin, text=True, capture_output=True, check=True
-    ).stdout
+    """Run kubectl, and on failure raise with what kubectl actually said.
+
+    `capture_output=True` with `check=True` hides stderr inside the exception object, so a rejected
+    manifest surfaced as a bare "returned non-zero exit status 1" -- the useful half of the message
+    thrown away at the moment it was needed.
+    """
+    done = subprocess.run(["kubectl", *args], input=stdin, text=True, capture_output=True)
+    if done.returncode != 0:
+        raise RuntimeError(
+            f"kubectl {' '.join(args)} failed ({done.returncode}): "
+            f"{(done.stderr or done.stdout).strip()}"
+        )
+    return done.stdout
 
 
 def assert_healthy() -> None:
@@ -102,8 +112,8 @@ def _active_experiments() -> list[str]:
     """Chaos Mesh objects still in the namespace (empty before Chaos Mesh is installed)."""
     try:
         out = kubectl("-n", NAMESPACE, "get", ",".join(CHAOS_KINDS), "-o", "json")
-    except subprocess.CalledProcessError:
-        return []
+    except RuntimeError:
+        return []  # Chaos Mesh not installed yet: nothing can be running
     return [item["metadata"]["name"] for item in json.loads(out)["items"]]
 
 
