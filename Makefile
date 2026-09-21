@@ -10,7 +10,7 @@ DURATION   ?= 300
 CONFIG     ?= experiments/configs/base.yaml
 MODE       ?= webhook
 
-.PHONY: help venv test lint up down status reconnect overnight smoke clusters prepull pause resume monitors calibrate rca tunnel inject analyze replay eval sweep clean
+.PHONY: help venv test lint up down status reconnect overnight smoke progress clusters prepull pause resume monitors calibrate rca tunnel inject analyze replay eval sweep clean
 
 help: ## show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
@@ -86,6 +86,9 @@ replay: venv ## re-rank a stored incident with today's PRISM: ID=
 
 overnight: venv ## unattended: settle, calibrate, monitors, RCA service, campaign, score
 	infra/scripts/overnight.sh
+
+progress: ## is a campaign running, and how far along (reads the files, not the buffered log)
+	infra/scripts/progress.sh
 
 smoke: venv ## same pipeline, one short injection, no settle (~6 min) -- run this before a night
 	SETTLE_SECONDS=0 MONITOR_SETTLE_SECONDS=60 CALIBRATE=0 \
