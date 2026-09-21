@@ -13,9 +13,21 @@ cd "$(dirname "$0")/../.."
 LOCK=${LOCK:-/tmp/rca-sim-overnight.lock}
 exec 9>"$LOCK"
 flock -n 9 || {
-  echo "ABORT: another overnight run holds $LOCK. Kill it first, or unset the lock if it is stale." >&2
+  echo "ABORT: another overnight run holds $LOCK. Holding processes:" >&2
+  # The lock lives on an open fd, not on the file, so "who holds it" is a question about fds. Saying
+  # "kill it first" without answering that sent someone hunting with pgrep for a process that was
+  # not the holder.
+  for proc in /proc/[0-9]*; do
+    [ "${proc#/proc/}" = "$$" ] && continue  # this script's own fd 9 is not a holder worth reporting
+    ls -l "$proc/fd" 2>/dev/null | grep -q "$(basename "$LOCK")" &&
+      echo "  ${proc#/proc/}: $(tr "\0" " " <"$proc/cmdline")" >&2
+  done
   exit 1
 }
+
+# Every long-running child below closes fd 9 (`9>&-`). Without that they inherit the lock, and an
+# interrupted run leaves an orphaned `sleep` or poller holding it with the script long gone -- the
+# next run then aborts against a lock whose owner does not appear in any process listing.
 
 # The settle is not a warm-up: it is the input to the next step. `calibrate --hours 1` reads the
 # preceding hour, so an injection inside it raises every threshold above the faults the night is
@@ -40,7 +52,7 @@ fi
 
 if [ "$CALIBRATE" = 1 ]; then
   step "settling ${SETTLE_SECONDS}s for a quiet baseline (no injections in this window)"
-  sleep "$SETTLE_SECONDS"
+  sleep "$SETTLE_SECONDS" 9>&-
 
   step "calibrating thresholds from that baseline and writing them to monitors.yaml"
   $PY datadog/monitors/apply.py calibrate --hours 1 --apply
@@ -52,17 +64,17 @@ step "applying monitors, webhook and dashboard"
 $PY datadog/monitors/apply.py apply
 
 step "letting monitors settle ${MONITOR_SETTLE_SECONDS}s"
-sleep "$MONITOR_SETTLE_SECONDS"
+sleep "$MONITOR_SETTLE_SECONDS" 9>&-
 
 step "starting the RCA service (poller: no tunnel needed)"
 mkdir -p results
-$PY -m app.cli poll >results/rca-service.log 2>&1 &
+$PY -m app.cli poll >results/rca-service.log 2>&1 9>&- &
 POLLER=$!
 trap 'kill "$POLLER" 2>/dev/null || true' EXIT
-sleep 10
+sleep 10 9>&-
 kill -0 "$POLLER" 2>/dev/null || { echo "ABORT: poller died, see results/rca-service.log" >&2; exit 1; }
 
 step "campaign: $CONFIG"
-$PY experiments/live_eval.py --config "$CONFIG"
+$PY experiments/live_eval.py --config "$CONFIG" 9>&-
 
 step "done. reports in results/incidents/, scores in results/eval/"
